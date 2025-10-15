@@ -14,6 +14,6 @@ struct FamilyStockApp: App {
         WindowGroup {
             RootView()
         }
-        .modelContainer(for: [Item.self])
+        .modelContainer(for: [StockItem.self, ShoppingEntry.self])
     }
 }

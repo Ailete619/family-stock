@@ -9,30 +9,41 @@ import SwiftUI
 import SwiftData
 
 struct StockListView: View {
+    @Query(sort: \StockItem.name) private var items: [StockItem]
+    @Environment(\.modelContext) private var context
     @State private var isPresentingNew = false
-    @Query(sort: \Item.name) private var items: [Item]
-
 
     var body: some View {
         NavigationStack {
             List(items.filter { !$0.isDeleted }) { item in
                 Text(item.name)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button {
+                            let e = ShoppingEntry(itemId: item.id, desiredQuantity: 1, unit: "pcs")
+                            context.insert(e)
+                            try? context.save()
+                        } label: {
+                            Label(String(localized: "Add to Shopping"), systemImage: "cart.badge.plus")
+                        }
+                        .tint(.blue)
+                    }
             }
-            .navigationTitle("Stock")
+            .navigationTitle(String(localized: "Stock"))   // i18n-ready
             .toolbar {
                 Button {
                     isPresentingNew = true
                 } label: {
-                    Label("Add Item", systemImage: "plus")
+                    Label(String(localized: "Add Item"), systemImage: "plus")
                 }
                 .accessibilityIdentifier("AddItem")
             }
             .sheet(isPresented: $isPresentingNew) {
-                NewStockItemSheet()
+                NewStockItemSheet()    // next step
             }
         }
     }
 }
+
 #Preview {
     StockListView()
 }

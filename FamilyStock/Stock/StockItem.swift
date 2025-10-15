@@ -9,7 +9,7 @@ import SwiftData
 import Foundation
 
 @Model
-final class Item {
+final class StockItem {
     @Attribute(.unique) var id: String
     var name: String
     var category: String?

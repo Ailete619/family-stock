@@ -28,7 +28,7 @@ struct NewStockItemSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "Save")) {
-                        let item = Item(name: name.trimmingCharacters(in: .whitespaces),
+                        let item = StockItem(name: name.trimmingCharacters(in: .whitespaces),
                                         category: category.isEmpty ? nil : category)
                         context.insert(item)
                         try? context.save()
