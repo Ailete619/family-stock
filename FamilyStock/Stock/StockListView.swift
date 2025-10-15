@@ -6,15 +6,17 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct StockListView: View {
     @State private var isPresentingNew = false
+    @Query(sort: \Item.name) private var items: [Item]
+
 
     var body: some View {
         NavigationStack {
-            List {
-                Text("Rice")
-                Text("Toothpaste")
+            List(items.filter { !$0.isDeleted }) { item in
+                Text(item.name)
             }
             .navigationTitle("Stock")
             .toolbar {
@@ -26,8 +28,7 @@ struct StockListView: View {
                 .accessibilityIdentifier("AddItem")
             }
             .sheet(isPresented: $isPresentingNew) {
-                Text("New Item Sheet (stub)")
-                    .padding()
+                NewStockItemSheet()
             }
         }
     }

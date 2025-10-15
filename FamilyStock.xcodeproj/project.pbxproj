@@ -46,16 +46,6 @@
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
-/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		16F563072E9F63A300DBB31B /* Exceptions for "Docs" folder in "Compile Sources" phase from "FamilyStock" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = 16F562C32E9F583400DBB31B /* Sources */;
-			membershipExceptions = (
-				ReadMe_JA.md,
-			);
-		};
-/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		16F562C92E9F583400DBB31B /* FamilyStock */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -76,7 +66,6 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				16F563062E9F63A300DBB31B /* Exceptions for "Docs" folder in "FamilyStock" target */,
-				16F563072E9F63A300DBB31B /* Exceptions for "Docs" folder in "Compile Sources" phase from "FamilyStock" target */,
 			);
 			path = Docs;
 			sourceTree = "<group>";
