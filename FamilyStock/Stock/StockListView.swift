@@ -14,19 +14,11 @@ struct StockListView: View {
     @State private var isPresentingNew = false
 
     var body: some View {
-        NavigationStack {
-            List(items.filter { !$0.isDeleted }) { item in
-                Text(item.name)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button {
-                            let e = ShoppingEntry(itemId: item.id, desiredQuantity: 1, unit: "pcs")
-                            context.insert(e)
-                            try? context.save()
-                        } label: {
-                            Label(String(localized: "Add to Shopping"), systemImage: "cart.badge.plus")
-                        }
-                        .tint(.blue)
-                    }
+        let filteredItems = items.filter { !$0.isDeleted }
+
+        return NavigationStack {
+            List(filteredItems) { item in
+                StockListRow(item: item)
             }
             .navigationTitle(String(localized: "Stock"))   // i18n-ready
             .toolbar {
@@ -37,8 +29,12 @@ struct StockListView: View {
                 }
                 .accessibilityIdentifier("AddItem")
             }
-            .sheet(isPresented: $isPresentingNew) {
-                NewStockItemSheet()    // next step
+            .sheet(isPresented: $isPresentingNew, onDismiss: {
+                let descriptor = FetchDescriptor<StockItem>()
+                if let allItems = try? context.fetch(descriptor) {
+                }
+            }) {
+                NewStockItemSheet()
             }
         }
     }

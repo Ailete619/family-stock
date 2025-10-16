@@ -1,5 +1,5 @@
 //
-//  Item.swift.swift
+//  StockItem.swift.swift
 //  FamilyStock
 //
 //  Created by Loic Henri LE TEXIER on 2025/10/15.
@@ -15,18 +15,21 @@ final class StockItem {
     var category: String?
     var updatedAt: Date
     var isDeleted: Bool
+    var quantityOnHand: Double   // default = 0
 
     init(
         id: String = UUID().uuidString,
         name: String,
         category: String? = nil,
         updatedAt: Date = .now,
-        isDeleted: Bool = false
+        isDeleted: Bool = false,
+        quantityOnHand: Double = 0
     ) {
         self.id = id
         self.name = name
         self.category = category
         self.updatedAt = updatedAt
         self.isDeleted = isDeleted
+        self.quantityOnHand = quantityOnHand
     }
 }

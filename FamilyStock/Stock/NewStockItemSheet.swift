@@ -15,7 +15,7 @@ struct NewStockItemSheet: View {
     @State private var category: String = ""
 
     var body: some View {
-        NavigationStack {
+        return NavigationStack {
             Form {
                 TextField(String(localized: "Name"), text: $name)
                     .textInputAutocapitalization(.words)
@@ -28,10 +28,18 @@ struct NewStockItemSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "Save")) {
-                        let item = StockItem(name: name.trimmingCharacters(in: .whitespaces),
-                                        category: category.isEmpty ? nil : category)
+                        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmed.isEmpty else { return }
+
+                        let item = StockItem(name: trimmed, category: category.isEmpty ? nil : category)
                         context.insert(item)
-                        try? context.save()
+
+                        do {
+                            try context.save()
+                        } catch {
+                            assertionFailure("Failed to save new stock item: \(error)")
+                        }
+
                         dismiss()
                     }
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
