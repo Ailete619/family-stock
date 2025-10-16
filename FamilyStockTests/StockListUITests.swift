@@ -10,7 +10,7 @@ import SwiftUI
 import SwiftData
 @testable import FamilyStock
 
-/// UI Integration tests for StockListView and NewStockItemSheet
+/// UI Integration tests for StockListView and StockItemSheet
 struct StockListUITests {
 
     @Test func newStockItemSheet_creates_item_in_shared_context() throws {
@@ -24,7 +24,7 @@ struct StockListUITests {
         var items = try context.fetch(descriptor)
         #expect(items.isEmpty, "Database should start empty")
 
-        // Simulate what NewStockItemSheet does when saving
+        // Simulate what StockItemSheet does when saving
         let newItem = StockItem(name: "Test Item", category: "Test Category")
         context.insert(newItem)
         try context.save()
@@ -109,7 +109,7 @@ struct StockListUITests {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: StockItem.self, configurations: config)
 
-        // Context 1: Insert and save (simulates NewStockItemSheet)
+        // Context 1: Insert and save (simulates StockItemSheet)
         let context1 = ModelContext(container)
         let item = StockItem(name: "Shared Item")
         context1.insert(item)
@@ -149,7 +149,7 @@ struct StockListUITests {
         let container = try ModelContainer(for: StockItem.self, configurations: config)
         let context = ModelContext(container)
 
-        // Simulate NewStockItemSheet logic
+        // Simulate StockItemSheet logic
         let categoryInput = ""
         let category = categoryInput.isEmpty ? nil : categoryInput
 

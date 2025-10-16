@@ -41,10 +41,10 @@ struct StockListView: View {
                 if let allItems = try? context.fetch(descriptor) {
                 }
             }) {
-                NewStockItemSheet()
+                StockItemSheet(mode: .create)
             }
             .sheet(item: $itemBeingEdited) { item in
-                EditStockItemSheet(item: item)
+                StockItemSheet(mode: .edit(existing: item))
             }
             .alert(item: $pendingDeletion) { item in
                 Alert(
