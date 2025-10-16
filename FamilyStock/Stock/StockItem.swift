@@ -14,7 +14,7 @@ final class StockItem {
     var name: String
     var category: String?
     var updatedAt: Date
-    var isDeleted: Bool
+    var isArchived: Bool = false
     var quantityOnHand: Double   // default = 0
 
     init(
@@ -22,14 +22,14 @@ final class StockItem {
         name: String,
         category: String? = nil,
         updatedAt: Date = .now,
-        isDeleted: Bool = false,
+        isArchived: Bool = false,
         quantityOnHand: Double = 0
     ) {
         self.id = id
         self.name = name
         self.category = category
         self.updatedAt = updatedAt
-        self.isDeleted = isDeleted
+        self.isArchived = isArchived
         self.quantityOnHand = quantityOnHand
     }
 }

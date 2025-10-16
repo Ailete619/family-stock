@@ -20,7 +20,7 @@ struct StockListUITests {
         let context = ModelContext(container)
 
         // Verify initial state: no items
-        var descriptor = FetchDescriptor<StockItem>()
+        let descriptor = FetchDescriptor<StockItem>()
         var items = try context.fetch(descriptor)
         #expect(items.isEmpty, "Database should start empty")
 
@@ -33,7 +33,7 @@ struct StockListUITests {
         items = try context.fetch(descriptor)
         #expect(items.count == 1, "Should have 1 item after save")
         #expect(items.first?.name == "Test Item")
-        #expect(items.first?.isDeleted == false)
+        #expect(items.first?.isArchived == false)
     }
 
     @Test func stockListView_filters_deleted_items() throws {
@@ -42,8 +42,8 @@ struct StockListUITests {
         let context = ModelContext(container)
 
         // Insert both active and deleted items
-        let activeItem = StockItem(name: "Active Item", isDeleted: false)
-        let deletedItem = StockItem(name: "Deleted Item", isDeleted: true)
+        let activeItem = StockItem(name: "Active Item", isArchived: false)
+        let deletedItem = StockItem(name: "Deleted Item", isArchived: true)
 
         context.insert(activeItem)
         context.insert(deletedItem)
@@ -55,7 +55,7 @@ struct StockListUITests {
         #expect(allItems.count == 2)
 
         // Simulate StockListView filter
-        let visibleItems = allItems.filter { !$0.isDeleted }
+        let visibleItems = allItems.filter { !$0.isArchived }
         #expect(visibleItems.count == 1)
         #expect(visibleItems.first?.name == "Active Item")
     }
@@ -93,7 +93,7 @@ struct StockListUITests {
 
         // Before save - item might not be queryable in fresh context
         let beforeSaveDescriptor = FetchDescriptor<StockItem>()
-        let beforeSaveItems = try context.fetch(beforeSaveDescriptor)
+        _ = try context.fetch(beforeSaveDescriptor)
         // Note: items might be visible in same context before save
 
         // After save - item MUST be queryable

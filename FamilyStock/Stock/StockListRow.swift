@@ -14,10 +14,21 @@ struct StockListRow: View {
 
     @FocusState private var isQtyFocused: Bool
     @State private var qtyText: String = ""
+    var onEdit: () -> Void
+    var onDelete: () -> Void
+    var onAddToShopping: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(item.name)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.name)
+                    .font(.headline)
+                if let category = item.category, !category.isEmpty {
+                    Text(category)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             Spacer()
 
@@ -39,6 +50,33 @@ struct StockListRow: View {
                 .onAppear {
                     qtyText = format(item.quantityOnHand)
                 }
+
+            HStack(spacing: 8) {
+                Button {
+                    onEdit()
+                } label: {
+                    Image(systemName: "pencil")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "Edit"))
+
+                Button {
+                    onAddToShopping()
+                } label: {
+                    Image(systemName: "cart.badge.plus")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "Add to shopping list"))
+
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "Delete"))
+            }
         }
         .contentShape(Rectangle()) // keeps row tap area sane
         .accessibilityIdentifier("ItemRow_\(item.id)")

@@ -7,6 +7,7 @@
 
 import Testing
 import SwiftData
+import Foundation
 @testable import FamilyStock
 
 struct StockItemTests {
@@ -18,7 +19,7 @@ struct StockItemTests {
 
         #expect(item.name == "Milk")
         #expect(item.category == nil)
-        #expect(item.isDeleted == false)
+        #expect(item.isArchived == false)
         #expect(item.quantityOnHand == 0)
         #expect(!item.id.isEmpty)
     }
@@ -28,7 +29,7 @@ struct StockItemTests {
 
         #expect(item.name == "Milk")
         #expect(item.category == "Dairy")
-        #expect(item.isDeleted == false)
+        #expect(item.isArchived == false)
     }
 
     @Test func stockItem_initializes_with_quantity() {
@@ -116,18 +117,20 @@ struct StockItemTests {
         try context.save()
 
         // Soft delete
-        item.isDeleted = true
+        item.isArchived = true
         try context.save()
 
         // Fetch all items (including deleted)
         let allDescriptor = FetchDescriptor<StockItem>()
         let allItems = try context.fetch(allDescriptor)
         #expect(allItems.count == 1)
-        #expect(allItems.first?.isDeleted == true)
+        #expect(allItems.first?.isArchived == true)
 
         // Fetch only non-deleted items
         var activeDescriptor = FetchDescriptor<StockItem>()
-        activeDescriptor.predicate = #Predicate { !$0.isDeleted }
+        activeDescriptor.predicate = #Predicate<StockItem> { item in
+            item.isArchived == false
+        }
         let activeItems = try context.fetch(activeDescriptor)
         #expect(activeItems.count == 0)
     }
@@ -148,7 +151,7 @@ struct StockItemTests {
         try context.save()
 
         // Fetch and verify
-        let descriptor = FetchDescriptor<StockItem>(sortBy: [SortDescriptor(\.name)])
+        let descriptor = FetchDescriptor<StockItem>(sortBy: [SortDescriptor<StockItem>(\.name)])
         let fetchedItems = try context.fetch(descriptor)
 
         #expect(fetchedItems.count == 3)
