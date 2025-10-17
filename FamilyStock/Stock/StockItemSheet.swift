@@ -29,6 +29,8 @@ struct StockItemSheet: View {
     private let mode: Mode
     @State private var name: String
     @State private var category: String
+    @State private var quantityInStockText: String
+    @State private var fullStockText: String
 
     init(mode: Mode) {
         self.mode = mode
@@ -37,18 +39,53 @@ struct StockItemSheet: View {
         case .create:
             _name = State(initialValue: "")
             _category = State(initialValue: "")
+            _quantityInStockText = State(initialValue: Self.format(0))
+            _fullStockText = State(initialValue: Self.format(0))
         case .edit(existing: let item):
             _name = State(initialValue: item.name)
             _category = State(initialValue: item.category ?? "")
+            _quantityInStockText = State(initialValue: Self.format(item.quantityInStock))
+            _fullStockText = State(initialValue: Self.format(item.quantityFullStock))
         }
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                TextField(String(localized: "Name"), text: $name)
-                    .textInputAutocapitalization(.words)
-                TextField(String(localized: "Category (optional)"), text: $category)
+                Section {
+                    LabeledContent {
+                        TextField(String(localized: "Name"), text: $name)
+                            .textInputAutocapitalization(.words)
+                            .multilineTextAlignment(.trailing)
+                    } label: {
+                        Text(String(localized: "Name"))
+                    }
+
+                    LabeledContent {
+                        TextField(String(localized: "Category (optional)"), text: $category)
+                            .multilineTextAlignment(.trailing)
+                    } label: {
+                        Text(String(localized: "Category"))
+                    }
+                }
+
+                Section {
+                    LabeledContent {
+                        TextField(String(localized: "Quantity"), text: $quantityInStockText)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                    } label: {
+                        Text(String(localized: "Quantity In Stock"))
+                    }
+
+                    LabeledContent {
+                        TextField(String(localized: "Full Stock"), text: $fullStockText)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                    } label: {
+                        Text(String(localized: "Full Stock Count"))
+                    }
+                }
             }
             .navigationTitle(mode.title)
             .toolbar {
@@ -74,14 +111,27 @@ private extension StockItemSheet {
         let trimmedCategory = category.trimmingCharacters(in: .whitespacesAndNewlines)
         let categoryValue = trimmedCategory.isEmpty ? nil : trimmedCategory
 
+        let cleanedQuantityInStock = quantityInStockText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parsedQuantityInStock = Double(cleanedQuantityInStock.replacingOccurrences(of: ",", with: ".")) ?? 0
+
+        let cleanedFullStock = fullStockText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parsedFullStock = Double(cleanedFullStock.replacingOccurrences(of: ",", with: ".")) ?? 0
+
         switch mode {
         case .create:
-            let item = StockItem(name: trimmedName, category: categoryValue)
+            let item = StockItem(
+                name: trimmedName,
+                category: categoryValue,
+                quantityInStock: parsedQuantityInStock,
+                quantityFullStock: parsedFullStock
+            )
             item.updatedAt = .now
             context.insert(item)
         case .edit(existing: let item):
             item.name = trimmedName
             item.category = categoryValue
+            item.quantityInStock = parsedQuantityInStock
+            item.quantityFullStock = parsedFullStock
             item.updatedAt = .now
         }
 
@@ -92,6 +142,13 @@ private extension StockItemSheet {
         }
 
         dismiss()
+    }
+
+    static func format(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: value)) ?? ""
     }
 }
 

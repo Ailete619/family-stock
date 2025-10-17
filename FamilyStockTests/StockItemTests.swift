@@ -20,7 +20,8 @@ struct StockItemTests {
         #expect(item.name == "Milk")
         #expect(item.category == nil)
         #expect(item.isArchived == false)
-        #expect(item.quantityOnHand == 0)
+        #expect(item.quantityInStock == 0)
+        #expect(item.quantityFullStock == 0)
         #expect(!item.id.isEmpty)
     }
 
@@ -33,10 +34,25 @@ struct StockItemTests {
     }
 
     @Test func stockItem_initializes_with_quantity() {
-        let item = StockItem(name: "Milk", quantityOnHand: 2.5)
+        let item = StockItem(name: "Milk", quantityInStock: 2.5)
 
         #expect(item.name == "Milk")
-        #expect(item.quantityOnHand == 2.5)
+        #expect(item.quantityInStock == 2.5)
+        #expect(item.quantityFullStock == 0)
+    }
+
+    @Test func stockItem_initializes_with_full_stock_count() {
+        let item = StockItem(name: "Milk", quantityFullStock: 12)
+
+        #expect(item.quantityFullStock == 12)
+    }
+
+    @Test func stockItem_initializes_with_both_quantities() {
+        let item = StockItem(name: "Milk", quantityInStock: 5, quantityFullStock: 12)
+
+        #expect(item.name == "Milk")
+        #expect(item.quantityInStock == 5)
+        #expect(item.quantityFullStock == 12)
     }
 
     // MARK: - SwiftData Persistence Tests
@@ -48,7 +64,11 @@ struct StockItemTests {
         let context = ModelContext(container)
 
         // Insert item
-        let item = StockItem(name: "Test Item", category: "Test Category")
+        let item = StockItem(
+            name: "Test Item",
+            category: "Test Category",
+            quantityFullStock: 24
+        )
         context.insert(item)
         try context.save()
 
@@ -59,6 +79,7 @@ struct StockItemTests {
         #expect(fetchedItems.count == 1)
         #expect(fetchedItems.first?.name == "Test Item")
         #expect(fetchedItems.first?.category == "Test Category")
+        #expect(fetchedItems.first?.quantityFullStock == 24)
     }
 
     @Test func stockItem_persists_after_save() throws {
@@ -94,7 +115,8 @@ struct StockItemTests {
 
         // Update item
         item.name = "Updated Name"
-        item.quantityOnHand = 5.0
+        item.quantityInStock = 5.0
+        item.quantityFullStock = 12.0
         try context.save()
 
         // Fetch and verify
@@ -103,7 +125,8 @@ struct StockItemTests {
 
         #expect(fetchedItems.count == 1)
         #expect(fetchedItems.first?.name == "Updated Name")
-        #expect(fetchedItems.first?.quantityOnHand == 5.0)
+        #expect(fetchedItems.first?.quantityInStock == 5.0)
+        #expect(fetchedItems.first?.quantityFullStock == 12.0)
     }
 
     @Test func stockItem_soft_delete_works() throws {
@@ -180,5 +203,34 @@ struct StockItemTests {
         #expect(items.count == 2)
         let ids = Set(items.map { $0.id })
         #expect(ids.count == 2)
+    }
+
+    @Test func stockItem_quantity_can_be_decreased() throws {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: StockItem.self, configurations: config)
+        let context = ModelContext(container)
+
+        // Create item with quantity
+        let item = StockItem(name: "Test Item", quantityInStock: 5)
+        context.insert(item)
+        try context.save()
+
+        // Decrease quantity
+        item.quantityInStock = max(0, item.quantityInStock - 1)
+        try context.save()
+
+        #expect(item.quantityInStock == 4)
+
+        // Decrease to 0
+        item.quantityInStock = 0
+        try context.save()
+
+        #expect(item.quantityInStock == 0)
+
+        // Ensure it doesn't go below 0
+        item.quantityInStock = max(0, item.quantityInStock - 1)
+        try context.save()
+
+        #expect(item.quantityInStock == 0)
     }
 }

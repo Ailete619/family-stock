@@ -15,7 +15,8 @@ final class StockItem {
     var category: String?
     var updatedAt: Date
     var isArchived: Bool = false
-    var quantityOnHand: Double   // default = 0
+    var quantityInStock: Double = 0
+    var quantityFullStock: Double = 0
 
     init(
         id: String = UUID().uuidString,
@@ -23,13 +24,15 @@ final class StockItem {
         category: String? = nil,
         updatedAt: Date = .now,
         isArchived: Bool = false,
-        quantityOnHand: Double = 0
+        quantityInStock: Double = 0,
+        quantityFullStock: Double = 0
     ) {
         self.id = id
         self.name = name
         self.category = category
         self.updatedAt = updatedAt
         self.isArchived = isArchived
-        self.quantityOnHand = quantityOnHand
+        self.quantityInStock = quantityInStock
+        self.quantityFullStock = quantityFullStock
     }
 }

@@ -36,11 +36,7 @@ struct StockListView: View {
                 }
                 .accessibilityIdentifier("AddItem")
             }
-            .sheet(isPresented: $isPresentingNew, onDismiss: {
-                let descriptor = FetchDescriptor<StockItem>()
-                if let allItems = try? context.fetch(descriptor) {
-                }
-            }) {
+            .sheet(isPresented: $isPresentingNew) {
                 StockItemSheet(mode: .create)
             }
             .sheet(item: $itemBeingEdited) { item in
@@ -84,7 +80,7 @@ private extension StockListView {
             entry.itemId == savedID && entry.isDeleted == false
         }
         let descriptor = FetchDescriptor<ShoppingEntry>(predicate: predicate, sortBy: [])
-        let increment = 1.0
+        let increment = item.quantityFullStock
         if let existing = (try? context.fetch(descriptor))?.first {
             existing.desiredQuantity += increment
             existing.updatedAt = .now
@@ -92,7 +88,7 @@ private extension StockListView {
             let entry = ShoppingEntry(
                 itemId: item.id,
                 desiredQuantity: increment,
-                unit: "pcs"
+                unit: ""
             )
             entry.updatedAt = .now
             context.insert(entry)

@@ -17,6 +17,7 @@ final class ShoppingEntry {
     var note: String?
     var updatedAt: Date
     var isDeleted: Bool
+    var isCompleted: Bool = false
 
     init(
         id: String = UUID().uuidString,
@@ -25,7 +26,8 @@ final class ShoppingEntry {
         unit: String = "pcs",
         note: String? = nil,
         updatedAt: Date = .now,
-        isDeleted: Bool = false
+        isDeleted: Bool = false,
+        isCompleted: Bool = false
     ) {
         self.id = id
         self.itemId = itemId
@@ -34,5 +36,6 @@ final class ShoppingEntry {
         self.note = note
         self.updatedAt = updatedAt
         self.isDeleted = isDeleted
+        self.isCompleted = isCompleted
     }
 }

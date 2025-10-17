@@ -12,8 +12,6 @@ struct StockListRow: View {
     @Environment(\.modelContext) private var context
     @Bindable var item: StockItem
 
-    @FocusState private var isQtyFocused: Bool
-    @State private var qtyText: String = ""
     var onEdit: () -> Void
     var onDelete: () -> Void
     var onAddToShopping: () -> Void
@@ -32,26 +30,8 @@ struct StockListRow: View {
 
             Spacer()
 
-            TextField(String(localized: "Qty"),
-                      text: $qtyText)
-                .keyboardType(.decimalPad)
-                .multilineTextAlignment(.trailing)
-                .frame(width: 76)
-                .textFieldStyle(.roundedBorder)
-                .focused($isQtyFocused)
-                .onChange(of: qtyText) { _, new in
-                    // parse-as-you-type; keep it forgiving
-                    if let v = Double(new.replacingOccurrences(of: ",", with: ".")) {
-                        item.quantityOnHand = v
-                        item.updatedAt = .now
-                        try? context.save()
-                    }
-                }
-                .onAppear {
-                    qtyText = format(item.quantityOnHand)
-                }
-
             HStack(spacing: 8) {
+                // Edit button
                 Button {
                     onEdit()
                 } label: {
@@ -60,6 +40,24 @@ struct StockListRow: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "Edit"))
 
+                // Minus button to decrease quantity
+                Button {
+                    decreaseQuantity()
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .foregroundStyle(.blue)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "Decrease quantity"))
+
+                // Display quantity as "quantityInStock / quantityFullStock"
+                Text("\(format(item.quantityInStock)) / \(format(item.quantityFullStock))")
+                    .font(.body)
+                    .monospacedDigit()
+                    .frame(minWidth: 60)
+            }
+
+            HStack(spacing: 8) {
                 Button {
                     onAddToShopping()
                 } label: {
@@ -88,5 +86,12 @@ struct StockListRow: View {
         f.numberStyle = .decimal
         f.maximumFractionDigits = 2
         return f.string(from: NSNumber(value: d)) ?? "0"
+    }
+
+    private func decreaseQuantity() {
+        // Decrease quantity by 1, but don't go below 0
+        item.quantityInStock = max(0, item.quantityInStock - 1)
+        item.updatedAt = .now
+        try? context.save()
     }
 }
