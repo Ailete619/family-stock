@@ -82,6 +82,7 @@ struct StockItemSheet: View {
                         TextField(String(localized: "Full Stock"), text: $fullStockText)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .accessibilityIdentifier("Full Stock Count")
                     } label: {
                         Text(String(localized: "Full Stock Count"))
                     }

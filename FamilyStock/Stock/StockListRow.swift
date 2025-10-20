@@ -39,6 +39,7 @@ struct StockListRow: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "Edit"))
+                .accessibilityIdentifier("EditButton_\(item.id)")
 
                 // Minus button to decrease quantity
                 Button {
@@ -49,12 +50,14 @@ struct StockListRow: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "Decrease quantity"))
+                .accessibilityIdentifier("DecreaseButton_\(item.id)")
 
                 // Display quantity as "quantityInStock / quantityFullStock"
                 Text("\(format(item.quantityInStock)) / \(format(item.quantityFullStock))")
                     .font(.body)
                     .monospacedDigit()
                     .frame(minWidth: 60)
+                    .accessibilityIdentifier("QuantityText_\(item.id)")
             }
 
             HStack(spacing: 8) {
@@ -65,6 +68,7 @@ struct StockListRow: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "Add to shopping list"))
+                .accessibilityIdentifier("AddToShoppingButton_\(item.id)")
 
                 Button(role: .destructive) {
                     onDelete()
@@ -74,6 +78,7 @@ struct StockListRow: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "Delete"))
+                .accessibilityIdentifier("DeleteButton_\(item.id)")
             }
         }
         .contentShape(Rectangle()) // keeps row tap area sane
@@ -89,9 +94,17 @@ struct StockListRow: View {
     }
 
     private func decreaseQuantity() {
+        // Store the previous quantity to check if we hit zero
+        let previousQuantity = item.quantityInStock
+
         // Decrease quantity by 1, but don't go below 0
         item.quantityInStock = max(0, item.quantityInStock - 1)
         item.updatedAt = .now
         try? context.save()
+
+        // If we just hit zero, automatically add to shopping list
+        if previousQuantity > 0 && item.quantityInStock == 0 {
+            onAddToShopping()
+        }
     }
 }

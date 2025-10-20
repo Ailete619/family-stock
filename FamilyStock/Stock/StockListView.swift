@@ -80,14 +80,15 @@ private extension StockListView {
             entry.itemId == savedID && entry.isDeleted == false
         }
         let descriptor = FetchDescriptor<ShoppingEntry>(predicate: predicate, sortBy: [])
-        let increment = item.quantityFullStock
+        let quantity = item.quantityFullStock > 0 ? item.quantityFullStock : 1
         if let existing = (try? context.fetch(descriptor))?.first {
-            existing.desiredQuantity += increment
+            // Set the quantity to full stock instead of adding to it
+            existing.desiredQuantity = quantity
             existing.updatedAt = .now
         } else {
             let entry = ShoppingEntry(
                 itemId: item.id,
-                desiredQuantity: increment,
+                desiredQuantity: quantity,
                 unit: ""
             )
             entry.updatedAt = .now

@@ -11,10 +11,13 @@ struct RootView: View {
     var body: some View {
         TabView {
             StockListView()
-                .tabItem { Label("Stock", systemImage: "shippingbox") }
+                .tabItem { Label(String(localized: "Stock"), systemImage: "shippingbox") }
 
             ShoppingListView()
-                .tabItem { Label("Shopping", systemImage: "cart") }
+                .tabItem { Label(String(localized: "Shopping"), systemImage: "cart") }
+
+            ReceiptListView()
+                .tabItem { Label(String(localized: "Receipts"), systemImage: "doc.text") }
         }
     }
 }
