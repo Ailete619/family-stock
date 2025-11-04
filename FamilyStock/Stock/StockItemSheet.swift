@@ -25,6 +25,8 @@ struct StockItemSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @StateObject private var auth = SupabaseClient.shared
+    @State private var syncService: SyncService?
 
     private let mode: Mode
     @State private var name: String
@@ -89,6 +91,11 @@ struct StockItemSheet: View {
                 }
             }
             .navigationTitle(mode.title)
+            .task {
+                if syncService == nil {
+                    syncService = SyncService(context: context)
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "Cancel")) { dismiss() }
@@ -118,26 +125,38 @@ private extension StockItemSheet {
         let cleanedFullStock = fullStockText.trimmingCharacters(in: .whitespacesAndNewlines)
         let parsedFullStock = Double(cleanedFullStock.replacingOccurrences(of: ",", with: ".")) ?? 0
 
+        let savedItem: StockItem
         switch mode {
         case .create:
+            guard let userId = auth.currentUser?.id else {
+                return // Can't create item without authenticated user
+            }
             let item = StockItem(
+                userId: userId,
                 name: trimmedName,
                 category: categoryValue,
                 quantityInStock: parsedQuantityInStock,
                 quantityFullStock: parsedFullStock
             )
-            item.updatedAt = .now
+            item.updatedAt = Date.now
             context.insert(item)
+            savedItem = item
         case .edit(existing: let item):
             item.name = trimmedName
             item.category = categoryValue
             item.quantityInStock = parsedQuantityInStock
             item.quantityFullStock = parsedFullStock
-            item.updatedAt = .now
+            item.updatedAt = Date.now
+            savedItem = item
         }
 
         do {
             try context.save()
+
+            // Push to Supabase after successful local save
+            Task {
+                await syncService?.pushItem(savedItem)
+            }
         } catch {
             assertionFailure("Failed to save stock item: \(error)")
         }
@@ -158,6 +177,6 @@ private extension StockItemSheet {
 }
 
 #Preview("Edit") {
-    let item = StockItem(name: "Sample", category: "Pantry")
-    return StockItemSheet(mode: .edit(existing: item))
+    let item = StockItem(userId: "preview-user-id", name: "Sample", category: "Pantry")
+    StockItemSheet(mode: .edit(existing: item))
 }

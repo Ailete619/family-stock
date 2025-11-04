@@ -54,13 +54,14 @@ struct ReceiptDetailView: View {
     }
 }
 
-#Preview {
-    let receipt = Receipt(shopName: "Sample Store", timestamp: .now)
-    receipt.items = [
-        ReceiptItem(itemName: "Milk", quantity: 2, receipt: receipt),
-        ReceiptItem(itemName: "Bread", quantity: 1, receipt: receipt)
-    ]
-    return NavigationStack {
-        ReceiptDetailView(receipt: receipt)
-    }
-}
+// Preview temporarily disabled due to SwiftData model changes
+// #Preview {
+//     let receipt = Receipt(userId: "preview-user-id", shopName: "Sample Store", timestamp: .now)
+//     receipt.items = [
+//         ReceiptItem(itemName: "Milk", quantity: 2, receipt: receipt),
+//         ReceiptItem(itemName: "Bread", quantity: 1, receipt: receipt)
+//     ]
+//     NavigationStack {
+//         ReceiptDetailView(receipt: receipt)
+//     }
+// }

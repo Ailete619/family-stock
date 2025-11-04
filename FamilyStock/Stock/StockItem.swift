@@ -11,6 +11,7 @@ import Foundation
 @Model
 final class StockItem {
     @Attribute(.unique) var id: String
+    var userId: String
     var name: String
     var category: String?
     var updatedAt: Date
@@ -20,6 +21,7 @@ final class StockItem {
 
     init(
         id: String = UUID().uuidString,
+        userId: String,
         name: String,
         category: String? = nil,
         updatedAt: Date = .now,
@@ -28,6 +30,7 @@ final class StockItem {
         quantityFullStock: Double = 0
     ) {
         self.id = id
+        self.userId = userId
         self.name = name
         self.category = category
         self.updatedAt = updatedAt

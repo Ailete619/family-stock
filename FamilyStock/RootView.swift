@@ -8,16 +8,25 @@
 import SwiftUI
 
 struct RootView: View {
+    @StateObject private var auth = SupabaseClient.shared
+
     var body: some View {
-        TabView {
-            StockListView()
-                .tabItem { Label(String(localized: "Stock"), systemImage: "shippingbox") }
+        if auth.isAuthenticated {
+            TabView {
+                StockListView()
+                    .tabItem { Label(String(localized: "Stock"), systemImage: "shippingbox") }
 
-            ShoppingListView()
-                .tabItem { Label(String(localized: "Shopping"), systemImage: "cart") }
+                ShoppingListView()
+                    .tabItem { Label(String(localized: "Shopping"), systemImage: "cart") }
 
-            ReceiptListView()
-                .tabItem { Label(String(localized: "Receipts"), systemImage: "doc.text") }
+                ReceiptListView()
+                    .tabItem { Label(String(localized: "Receipts"), systemImage: "doc.text") }
+
+                SettingsView()
+                    .tabItem { Label(String(localized: "Settings"), systemImage: "gearshape") }
+            }
+        } else {
+            AuthView()
         }
     }
 }

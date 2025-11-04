@@ -1,5 +1,5 @@
 //
-//  ShoppingEntry.swift
+//  ShoppingListEntry.swift
 //  FamilyStock
 //
 //  Created by Loic Henri LE TEXIER on 2025/10/15.
@@ -9,8 +9,9 @@ import SwiftData
 import Foundation
 
 @Model
-final class ShoppingEntry {
+final class ShoppingListEntry {
     @Attribute(.unique) var id: String
+    var userId: String
     var itemId: String                // FK to Item.id (simple for now)
     var desiredQuantity: Double
     var unit: String
@@ -21,6 +22,7 @@ final class ShoppingEntry {
 
     init(
         id: String = UUID().uuidString,
+        userId: String,
         itemId: String,
         desiredQuantity: Double = 1,
         unit: String = "pcs",
@@ -30,6 +32,7 @@ final class ShoppingEntry {
         isCompleted: Bool = false
     ) {
         self.id = id
+        self.userId = userId
         self.itemId = itemId
         self.desiredQuantity = desiredQuantity
         self.unit = unit

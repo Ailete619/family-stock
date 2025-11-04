@@ -11,6 +11,7 @@ import Foundation
 @Model
 final class Receipt {
     @Attribute(.unique) var id: String
+    var userId: String
     var shopName: String
     var timestamp: Date
     var amount: Double?
@@ -18,12 +19,14 @@ final class Receipt {
 
     init(
         id: String = UUID().uuidString,
+        userId: String,
         shopName: String,
         timestamp: Date = .now,
         amount: Double? = nil,
         items: [ReceiptItem] = []
     ) {
         self.id = id
+        self.userId = userId
         self.shopName = shopName
         self.timestamp = timestamp
         self.amount = amount

@@ -11,9 +11,11 @@ import SwiftData
 struct StockListView: View {
     @Query(sort: \StockItem.name) private var items: [StockItem]
     @Environment(\.modelContext) private var context
+    @StateObject private var auth = SupabaseClient.shared
     @State private var isPresentingNew = false
     @State private var itemBeingEdited: StockItem?
     @State private var pendingDeletion: StockItem?
+    @State private var syncService: SyncService?
 
     var body: some View {
         let filteredItems = items.filter { !$0.isArchived }
@@ -28,6 +30,16 @@ struct StockListView: View {
                 )
             }
             .navigationTitle(String(localized: "Stock"))   // i18n-ready
+            .task {
+                // Create service once when view appears
+                if syncService == nil {
+                    syncService = SyncService(context: context)
+                }
+            }
+            .refreshable {
+                // Pull stock items from Supabase
+                await syncService?.pullItems()
+            }
             .toolbar {
                 Button {
                     isPresentingNew = true
@@ -76,22 +88,26 @@ private extension StockListView {
 
     func addToShoppingList(_ item: StockItem) {
         let savedID = item.id
-        let predicate = #Predicate<ShoppingEntry> { entry in
+        let predicate = #Predicate<ShoppingListEntry> { entry in
             entry.itemId == savedID && entry.isDeleted == false
         }
-        let descriptor = FetchDescriptor<ShoppingEntry>(predicate: predicate, sortBy: [])
+        let descriptor = FetchDescriptor<ShoppingListEntry>(predicate: predicate, sortBy: [])
         let quantity = item.quantityFullStock > 0 ? item.quantityFullStock : 1
         if let existing = (try? context.fetch(descriptor))?.first {
             // Set the quantity to full stock instead of adding to it
             existing.desiredQuantity = quantity
-            existing.updatedAt = .now
+            existing.updatedAt = Date.now
         } else {
-            let entry = ShoppingEntry(
+            guard let userId = auth.currentUser?.id else {
+                return // Can't create shopping entry without authenticated user
+            }
+            let entry = ShoppingListEntry(
+                userId: userId,
                 itemId: item.id,
                 desiredQuantity: quantity,
                 unit: ""
             )
-            entry.updatedAt = .now
+            entry.updatedAt = Date.now
             context.insert(entry)
         }
 

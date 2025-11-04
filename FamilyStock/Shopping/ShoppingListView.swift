@@ -10,22 +10,24 @@ import SwiftData
 
 struct ShoppingListView: View {
     @Query(
-        filter: #Predicate<ShoppingEntry> { entry in
+        filter: #Predicate<ShoppingListEntry> { entry in
             entry.isDeleted == false
         },
-        sort: \ShoppingEntry.updatedAt,
+        sort: \ShoppingListEntry.updatedAt,
         order: .reverse
     )
-    private var entries: [ShoppingEntry]
+    private var entries: [ShoppingListEntry]
 
     @Query(sort: \StockItem.name)
     private var items: [StockItem]
 
     @Environment(\.modelContext) private var context
+    @StateObject private var auth = SupabaseClient.shared
     @State private var showingSaveSheet = false
     @State private var shopName = ""
     @State private var receiptDate = Date.now
     @State private var amountText = ""
+    @State private var syncService: SyncService?
 
     var body: some View {
         let nameById = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0.name) })
@@ -36,6 +38,14 @@ struct ShoppingListView: View {
                 ShoppingListRow(entry: entry, itemName: nameById[entry.itemId] ?? "Unknown")
             }
             .navigationTitle(String(localized: "Shopping"))
+            .task {
+                if syncService == nil {
+                    syncService = SyncService(context: context)
+                }
+            }
+            .refreshable {
+                await syncService?.pullShopping()
+            }
             .toolbar {
                 if !completedEntries.isEmpty {
                     Button {
@@ -100,7 +110,7 @@ struct ShoppingListView: View {
         }
     }
 
-    private func saveReceipt(completedEntries: [ShoppingEntry], nameById: [String: String]) {
+    private func saveReceipt(completedEntries: [ShoppingListEntry], nameById: [String: String]) {
         let trimmedShopName = shopName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedShopName.isEmpty else { return }
 
@@ -109,7 +119,10 @@ struct ShoppingListView: View {
         let parsedAmount = trimmedAmount.isEmpty ? nil : Double(trimmedAmount.replacingOccurrences(of: ",", with: "."))
 
         // Create receipt
-        let receipt = Receipt(shopName: trimmedShopName, timestamp: receiptDate, amount: parsedAmount)
+        guard let userId = auth.currentUser?.id else {
+            return // Can't create receipt without authenticated user
+        }
+        let receipt = Receipt(userId: userId, shopName: trimmedShopName, timestamp: receiptDate, amount: parsedAmount)
         context.insert(receipt)
 
         // Create receipt items
@@ -128,6 +141,16 @@ struct ShoppingListView: View {
 
         do {
             try context.save()
+
+            // Push receipt and shopping entries to Supabase
+            Task {
+                await syncService?.pushReceipt(receipt)
+                // Push each deleted shopping entry
+                for entry in completedEntries {
+                    await syncService?.pushShoppingEntry(entry)
+                }
+            }
+
             showingSaveSheet = false
             shopName = ""
             receiptDate = .now
@@ -140,7 +163,7 @@ struct ShoppingListView: View {
 
 struct ShoppingListRow: View {
     @Environment(\.modelContext) private var context
-    @Bindable var entry: ShoppingEntry
+    @Bindable var entry: ShoppingListEntry
     let itemName: String
 
     @State private var quantityText: String = ""
@@ -193,7 +216,16 @@ struct ShoppingListRow: View {
         guard let value = parseDouble(text) else { return }
         entry.desiredQuantity = value
         entry.updatedAt = .now
-        try? context.save()
+        do {
+            try context.save()
+            // Push to Supabase after successful local save
+            Task {
+                let syncService = SyncService(context: context)
+                await syncService.pushShoppingEntry(entry)
+            }
+        } catch {
+            print("Failed to save shopping entry: \(error)")
+        }
     }
 
     private func parseDouble(_ text: String) -> Double? {
@@ -205,7 +237,16 @@ struct ShoppingListRow: View {
     private func toggleCompleted() {
         entry.isCompleted.toggle()
         entry.updatedAt = .now
-        try? context.save()
+        do {
+            try context.save()
+            // Push to Supabase after successful local save
+            Task {
+                let syncService = SyncService(context: context)
+                await syncService.pushShoppingEntry(entry)
+            }
+        } catch {
+            print("Failed to save shopping entry: \(error)")
+        }
     }
 
     private func sanitized(_ value: String) -> String {

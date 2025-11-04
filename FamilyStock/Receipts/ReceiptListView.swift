@@ -12,6 +12,9 @@ struct ReceiptListView: View {
     @Query(sort: \Receipt.timestamp, order: .reverse)
     private var receipts: [Receipt]
 
+    @Environment(\.modelContext) private var context
+    @State private var syncService: SyncService?
+
     var body: some View {
         NavigationStack {
             List(receipts) { receipt in
@@ -26,6 +29,14 @@ struct ReceiptListView: View {
                 }
             }
             .navigationTitle(String(localized: "Receipts"))
+            .task {
+                if syncService == nil {
+                    syncService = SyncService(context: context)
+                }
+            }
+            .refreshable {
+                await syncService?.pullReceipts()
+            }
         }
     }
 }
