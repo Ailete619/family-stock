@@ -29,7 +29,7 @@ struct HTTPClient {
         var req = URLRequest(url: components.url!)
 
         // Use access token if available, otherwise use anon key
-        if let accessToken = await SupabaseClient.shared.getAccessToken() {
+        if let accessToken = try await SupabaseClient.shared.getAccessToken() {
             req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         } else {
             req.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
@@ -61,7 +61,7 @@ struct HTTPClient {
         req.httpMethod = "POST"
 
         // Use access token if available, otherwise use anon key
-        if let accessToken = await SupabaseClient.shared.getAccessToken() {
+        if let accessToken = try await SupabaseClient.shared.getAccessToken() {
             req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         } else {
             req.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
@@ -104,7 +104,7 @@ struct HTTPClient {
         req.httpMethod = "PATCH"
 
         // Use access token if available, otherwise use anon key
-        if let accessToken = await SupabaseClient.shared.getAccessToken() {
+        if let accessToken = try await SupabaseClient.shared.getAccessToken() {
             req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         } else {
             req.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
@@ -137,6 +137,49 @@ struct HTTPClient {
         guard (200..<300).contains(http.statusCode) else {
             throw URLError(.badServerResponse)
         }
-        return try jsonDecoder.decode(R.self, from: data)
+
+        // PostgREST PATCH returns array, extract first element
+        let results = try jsonDecoder.decode([R].self, from: data)
+        guard let first = results.first else {
+            throw URLError(.cannotParseResponse)
+        }
+        return first
+    }
+
+    func delete(_ path: String, query: [URLQueryItem]) async throws {
+        var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
+        components.queryItems = query
+        var req = URLRequest(url: components.url!)
+        req.httpMethod = "DELETE"
+
+        // Use access token if available, otherwise use anon key
+        if let accessToken = try await SupabaseClient.shared.getAccessToken() {
+            req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        } else {
+            req.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
+        }
+
+        req.setValue(anonKey, forHTTPHeaderField: "apikey")
+
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        guard let http = resp as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+
+        // Debug logging
+        print("DELETE \(path) - Status: \(http.statusCode)")
+        if let responseString = String(data: data, encoding: .utf8), !responseString.isEmpty {
+            print("Response: \(responseString)")
+
+            // Check for JWT expiration
+            if http.statusCode == 401 && responseString.contains("JWT expired") {
+                await SupabaseClient.shared.handleTokenExpiration()
+                throw SupabaseClient.AuthError.tokenExpired
+            }
+        }
+
+        guard (200..<300).contains(http.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
     }
 }

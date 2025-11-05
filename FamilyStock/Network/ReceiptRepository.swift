@@ -10,6 +10,7 @@ import Foundation
 protocol ReceiptRepository {
     func fetchUpdatedSince(_ date: Date?) async throws -> ([ReceiptDTO], [ReceiptItemDTO])
     func upsert(_ receipt: ReceiptDTO, items: [ReceiptItemDTO]) async throws -> ReceiptDTO
+    func delete(id: String) async throws
 }
 
 struct SupabaseReceiptRepository: ReceiptRepository {
@@ -51,6 +52,15 @@ struct SupabaseReceiptRepository: ReceiptRepository {
     }
 
     func upsert(_ receipt: ReceiptDTO, items: [ReceiptItemDTO]) async throws -> ReceiptDTO {
+        // Get current user ID to ensure RLS compliance
+        guard let currentUserId = await SupabaseClient.shared.currentUser?.id else {
+            throw SupabaseClient.AuthError.notAuthenticated
+        }
+
+        // Create a DTO with the current user's ID to satisfy RLS policy
+        var receiptToSync = receipt
+        receiptToSync.user_id = currentUserId
+
         let receiptQuery: [URLQueryItem] = [
             .init(name: "id", value: "eq.\(receipt.id)")
         ]
@@ -59,12 +69,20 @@ struct SupabaseReceiptRepository: ReceiptRepository {
         let existingReceipts: [ReceiptDTO]? = try? await client.get("receipts", query: receiptQuery)
 
         let savedReceipt: ReceiptDTO
-        if existingReceipts?.isEmpty == false {
-            // Receipt exists, use PATCH
-            savedReceipt = try await client.patch("receipts", body: receipt, query: receiptQuery)
+        if let existingReceipt = existingReceipts?.first {
+            // Receipt exists, check for conflict
+            let resolver = ConflictResolver()
+            if resolver.hasConflict(localUpdatedAt: receiptToSync.timestamp, remoteUpdatedAt: existingReceipt.timestamp) {
+                print("⚠️ Conflict detected for receipt \(receipt.id), resolving with last-write-wins")
+                let resolved = resolver.resolve(local: receiptToSync, remote: existingReceipt)
+                savedReceipt = try await client.patch("receipts", body: resolved, query: receiptQuery)
+            } else {
+                // No conflict, proceed with update
+                savedReceipt = try await client.patch("receipts", body: receiptToSync, query: receiptQuery)
+            }
         } else {
             // Receipt doesn't exist, use POST
-            let result: [ReceiptDTO] = try await client.post("receipts", body: receipt)
+            let result: [ReceiptDTO] = try await client.post("receipts", body: receiptToSync)
             guard let first = result.first else {
                 throw URLError(.cannotParseResponse)
             }
@@ -86,6 +104,20 @@ struct SupabaseReceiptRepository: ReceiptRepository {
         }
 
         return savedReceipt
+    }
+
+    func delete(id: String) async throws {
+        // First delete all associated receipt items
+        let itemQuery: [URLQueryItem] = [
+            .init(name: "receipt_id", value: "eq.\(id)")
+        ]
+        try await client.delete("receipt_items", query: itemQuery)
+
+        // Then delete the receipt itself
+        let receiptQuery: [URLQueryItem] = [
+            .init(name: "id", value: "eq.\(id)")
+        ]
+        try await client.delete("receipts", query: receiptQuery)
     }
 }
 

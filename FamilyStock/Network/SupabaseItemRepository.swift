@@ -33,6 +33,15 @@ struct SupabaseItemRepository: ItemRepository {
     }
 
     func upsert(_ item: StockItemDTO) async throws -> StockItemDTO {
+        // Get current user ID to ensure RLS compliance
+        guard let currentUserId = await SupabaseClient.shared.currentUser?.id else {
+            throw SupabaseClient.AuthError.notAuthenticated
+        }
+
+        // Create a DTO with the current user's ID to satisfy RLS policy
+        var itemToSync = item
+        itemToSync.user_id = currentUserId
+
         // PostgREST upsert uses POST with on_conflict query parameter
         // We need to check if item exists first, then use POST or PATCH
         let query: [URLQueryItem] = [
@@ -42,17 +51,31 @@ struct SupabaseItemRepository: ItemRepository {
         // Try to fetch existing item
         let existing: [StockItemDTO]? = try? await client.get("stock_items", query: query)
 
-        if existing?.isEmpty == false {
-            // Item exists, use PATCH
-            return try await client.patch("stock_items", body: item, query: query)
+        if let existingItem = existing?.first {
+            // Item exists, check for conflict
+            let resolver = ConflictResolver()
+            if resolver.hasConflict(localUpdatedAt: itemToSync.updated_at, remoteUpdatedAt: existingItem.updated_at) {
+                print("⚠️ Conflict detected for item \(item.id), resolving with last-write-wins")
+                let resolved = resolver.resolve(local: itemToSync, remote: existingItem)
+                return try await client.patch("stock_items", body: resolved, query: query)
+            }
+            // No conflict, proceed with update
+            return try await client.patch("stock_items", body: itemToSync, query: query)
         } else {
-            // Item doesn't exist, use POST
-            let result: [StockItemDTO] = try await client.post("stock_items", body: item)
+            // Item doesn't exist, use POST with current user ID
+            let result: [StockItemDTO] = try await client.post("stock_items", body: itemToSync)
             guard let first = result.first else {
                 throw URLError(.cannotParseResponse)
             }
             return first
         }
+    }
+
+    func delete(id: String) async throws {
+        let query: [URLQueryItem] = [
+            .init(name: "id", value: "eq.\(id)")
+        ]
+        try await client.delete("stock_items", query: query)
     }
 }
 

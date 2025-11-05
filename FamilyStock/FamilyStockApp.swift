@@ -13,7 +13,13 @@ struct FamilyStockApp: App {
     let container: ModelContainer = {
         do {
             // Use the default on-disk container for our models
-            return try ModelContainer(for: StockItem.self, ShoppingListEntry.self, Receipt.self, ReceiptItem.self)
+            return try ModelContainer(
+                for: StockItem.self,
+                ShoppingListEntry.self,
+                Receipt.self,
+                ReceiptItem.self,
+                PendingSync.self
+            )
         } catch {
             print("❌ App: Failed to initialize persistent ModelContainer: \(error)")
             do {
@@ -24,6 +30,7 @@ struct FamilyStockApp: App {
                     ShoppingListEntry.self,
                     Receipt.self,
                     ReceiptItem.self,
+                    PendingSync.self,
                     configurations: configuration
                 )
             } catch {

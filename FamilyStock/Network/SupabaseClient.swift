@@ -20,6 +20,8 @@ class SupabaseClient: ObservableObject {
     private let baseURL: URL
     private let anonKey: String
     private var accessToken: String?
+    private var refreshToken: String?
+    private var tokenExpiresAt: Date?
 
     struct User: Codable, Identifiable {
         let id: String
@@ -35,6 +37,8 @@ class SupabaseClient: ObservableObject {
            let savedUserData = UserDefaults.standard.data(forKey: "supabase_user"),
            let savedUser = try? JSONDecoder().decode(User.self, from: savedUserData) {
             self.accessToken = savedToken
+            self.refreshToken = UserDefaults.standard.string(forKey: "supabase_refresh_token")
+            self.tokenExpiresAt = UserDefaults.standard.object(forKey: "supabase_token_expires_at") as? Date
             self.currentUser = savedUser
             self.isAuthenticated = true
         }
@@ -78,13 +82,21 @@ class SupabaseClient: ObservableObject {
             throw AuthError.invalidCredentials
         }
 
-        // Save session
+        // Save session with refresh token
         self.accessToken = accessToken
+        self.refreshToken = authResponse.refresh_token
+        self.tokenExpiresAt = authResponse.expires_at.flatMap { Date(timeIntervalSince1970: TimeInterval($0)) }
         self.currentUser = User(id: user.id, email: user.email)
         self.isAuthenticated = true
 
         // Persist session
         UserDefaults.standard.set(accessToken, forKey: "supabase_access_token")
+        if let refreshToken = authResponse.refresh_token {
+            UserDefaults.standard.set(refreshToken, forKey: "supabase_refresh_token")
+        }
+        if let expiresAt = tokenExpiresAt {
+            UserDefaults.standard.set(expiresAt, forKey: "supabase_token_expires_at")
+        }
         if let userData = try? JSONEncoder().encode(currentUser) {
             UserDefaults.standard.set(userData, forKey: "supabase_user")
         }
@@ -125,13 +137,21 @@ class SupabaseClient: ObservableObject {
             throw AuthError.emailConfirmationRequired
         }
 
-        // Save session
+        // Save session with refresh token
         self.accessToken = accessToken
+        self.refreshToken = authResponse.refresh_token
+        self.tokenExpiresAt = authResponse.expires_at.flatMap { Date(timeIntervalSince1970: TimeInterval($0)) }
         self.currentUser = User(id: user.id, email: user.email)
         self.isAuthenticated = true
 
         // Persist session
         UserDefaults.standard.set(accessToken, forKey: "supabase_access_token")
+        if let refreshToken = authResponse.refresh_token {
+            UserDefaults.standard.set(refreshToken, forKey: "supabase_refresh_token")
+        }
+        if let expiresAt = tokenExpiresAt {
+            UserDefaults.standard.set(expiresAt, forKey: "supabase_token_expires_at")
+        }
         if let userData = try? JSONEncoder().encode(currentUser) {
             UserDefaults.standard.set(userData, forKey: "supabase_user")
         }
@@ -139,11 +159,15 @@ class SupabaseClient: ObservableObject {
 
     func signOut() {
         self.accessToken = nil
+        self.refreshToken = nil
+        self.tokenExpiresAt = nil
         self.currentUser = nil
         self.isAuthenticated = false
 
         // Clear persisted session
         UserDefaults.standard.removeObject(forKey: "supabase_access_token")
+        UserDefaults.standard.removeObject(forKey: "supabase_refresh_token")
+        UserDefaults.standard.removeObject(forKey: "supabase_token_expires_at")
         UserDefaults.standard.removeObject(forKey: "supabase_user")
 
         // Clear sync timestamps
@@ -152,14 +176,78 @@ class SupabaseClient: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "lastPullReceipts")
     }
 
-    func getAccessToken() -> String? {
+    func getAccessToken() async throws -> String? {
+        // Check if token is about to expire (within 5 minutes)
+        if let expiresAt = tokenExpiresAt, Date().addingTimeInterval(300) >= expiresAt {
+            // Token is expired or about to expire, try to refresh it
+            try await refreshAccessToken()
+        }
         return accessToken
+    }
+
+    private func refreshAccessToken() async throws {
+        guard let refreshToken = refreshToken else {
+            throw AuthError.tokenExpired
+        }
+
+        var urlComponents = URLComponents(url: baseURL.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("auth/v1/token"), resolvingAgainstBaseURL: false)!
+        urlComponents.queryItems = [URLQueryItem(name: "grant_type", value: "refresh_token")]
+        let url = urlComponents.url!
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+
+        let body = ["refresh_token": refreshToken]
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw AuthError.tokenRefreshFailed
+        }
+
+        print("Refresh token response status: \(httpResponse.statusCode)")
+        if let responseString = String(data: data, encoding: .utf8) {
+            print("Refresh token response: \(responseString)")
+        }
+
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            // Refresh token is invalid or expired, need to re-authenticate
+            handleTokenExpiration()
+            throw AuthError.tokenExpired
+        }
+
+        let authResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
+
+        guard let newAccessToken = authResponse.access_token else {
+            throw AuthError.tokenRefreshFailed
+        }
+
+        // Update tokens
+        self.accessToken = newAccessToken
+        self.refreshToken = authResponse.refresh_token ?? refreshToken
+        self.tokenExpiresAt = authResponse.expires_at.flatMap { Date(timeIntervalSince1970: TimeInterval($0)) }
+
+        // Persist new tokens
+        UserDefaults.standard.set(newAccessToken, forKey: "supabase_access_token")
+        if let newRefreshToken = authResponse.refresh_token {
+            UserDefaults.standard.set(newRefreshToken, forKey: "supabase_refresh_token")
+        }
+        if let expiresAt = tokenExpiresAt {
+            UserDefaults.standard.set(expiresAt, forKey: "supabase_token_expires_at")
+        }
+
+        print("✅ Token refreshed successfully")
     }
 
     // MARK: - Helper Types
 
     private struct AuthResponse: Codable {
         let access_token: String?
+        let refresh_token: String?
+        let expires_at: Int?
         let user: UserResponse?
     }
 
@@ -182,6 +270,7 @@ class SupabaseClient: ObservableObject {
         case notAuthenticated
         case emailConfirmationRequired
         case tokenExpired
+        case tokenRefreshFailed
 
         var errorDescription: String? {
             switch self {
@@ -195,6 +284,8 @@ class SupabaseClient: ObservableObject {
                 return "Please check your email to confirm your account before signing in"
             case .tokenExpired:
                 return "Your session has expired. Please sign in again"
+            case .tokenRefreshFailed:
+                return "Failed to refresh session. Please sign in again"
             }
         }
     }

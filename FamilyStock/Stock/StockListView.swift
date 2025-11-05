@@ -81,6 +81,11 @@ private extension StockListView {
         }
         do {
             try context.save()
+
+            // Push the archived state to Supabase
+            Task {
+                await syncService?.pushItem(item)
+            }
         } catch {
             assertionFailure("Failed to delete item: \(error)")
         }
