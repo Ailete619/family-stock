@@ -44,7 +44,10 @@ struct ShoppingListView: View {
                 }
             }
             .refreshable {
-                await syncService?.pullShopping()
+                // Skip sync in local-only mode
+                if !auth.isLocalOnly {
+                    await syncService?.pullShopping()
+                }
             }
             .toolbar {
                 if !completedEntries.isEmpty {
@@ -149,15 +152,17 @@ struct ShoppingListView: View {
         do {
             try context.save()
 
-            // Push receipt, shopping entries, and updated stock items to Supabase
-            Task {
-                await syncService?.pushReceipt(receipt)
-                // Push each deleted shopping entry
-                for entry in completedEntries {
-                    await syncService?.pushShoppingEntry(entry)
-                    // Push the updated stock item if it exists
-                    if let stockItem = items.first(where: { $0.id == entry.itemId }) {
-                        await syncService?.pushItem(stockItem)
+            // Push receipt, shopping entries, and updated stock items to Supabase (skip for local-only mode)
+            if !auth.isLocalOnly {
+                Task {
+                    await syncService?.pushReceipt(receipt)
+                    // Push each deleted shopping entry
+                    for entry in completedEntries {
+                        await syncService?.pushShoppingEntry(entry)
+                        // Push the updated stock item if it exists
+                        if let stockItem = items.first(where: { $0.id == entry.itemId }) {
+                            await syncService?.pushItem(stockItem)
+                        }
                     }
                 }
             }
@@ -174,6 +179,7 @@ struct ShoppingListView: View {
 
 struct ShoppingListRow: View {
     @Environment(\.modelContext) private var context
+    @StateObject private var auth = SupabaseClient.shared
     @Bindable var entry: ShoppingListEntry
     let itemName: String
 
@@ -229,10 +235,12 @@ struct ShoppingListRow: View {
         entry.updatedAt = .now
         do {
             try context.save()
-            // Push to Supabase after successful local save
-            Task {
-                let syncService = SyncService(context: context)
-                await syncService.pushShoppingEntry(entry)
+            // Push to Supabase after successful local save (skip for local-only mode)
+            if !auth.isLocalOnly {
+                Task {
+                    let syncService = SyncService(context: context)
+                    await syncService.pushShoppingEntry(entry)
+                }
             }
         } catch {
             print("Failed to save shopping entry: \(error)")
@@ -250,10 +258,12 @@ struct ShoppingListRow: View {
         entry.updatedAt = .now
         do {
             try context.save()
-            // Push to Supabase after successful local save
-            Task {
-                let syncService = SyncService(context: context)
-                await syncService.pushShoppingEntry(entry)
+            // Push to Supabase after successful local save (skip for local-only mode)
+            if !auth.isLocalOnly {
+                Task {
+                    let syncService = SyncService(context: context)
+                    await syncService.pushShoppingEntry(entry)
+                }
             }
         } catch {
             print("Failed to save shopping entry: \(error)")

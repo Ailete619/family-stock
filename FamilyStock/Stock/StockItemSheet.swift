@@ -161,9 +161,11 @@ private extension StockItemSheet {
                 addToShoppingList(savedItem)
             }
 
-            // Push to Supabase after successful local save
-            Task {
-                await syncService?.pushItem(savedItem)
+            // Push to Supabase after successful local save (skip for local-only mode)
+            if !auth.isLocalOnly {
+                Task {
+                    await syncService?.pushItem(savedItem)
+                }
             }
         } catch {
             assertionFailure("Failed to save stock item: \(error)")
@@ -204,9 +206,11 @@ private extension StockItemSheet {
             try context.save()
             print("🛒 Auto-added \(item.name) to shopping list (quantity: \(quantity))")
 
-            // Push shopping entry to Supabase
-            Task {
-                await syncService?.pushShoppingEntry(entry)
+            // Push shopping entry to Supabase (skip for local-only mode)
+            if !auth.isLocalOnly {
+                Task {
+                    await syncService?.pushShoppingEntry(entry)
+                }
             }
         } catch {
             print("❌ Failed to add item to shopping list: \(error)")

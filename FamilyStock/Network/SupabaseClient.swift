@@ -16,6 +16,7 @@ class SupabaseClient: ObservableObject {
 
     @Published var currentUser: User?
     @Published var isAuthenticated = false
+    @Published var isLocalOnly = false
 
     private let baseURL: URL
     private let anonKey: String
@@ -26,11 +27,29 @@ class SupabaseClient: ObservableObject {
     struct User: Codable, Identifiable {
         let id: String
         let email: String
+        let isLocal: Bool
+
+        init(id: String, email: String, isLocal: Bool = false) {
+            self.id = id
+            self.email = email
+            self.isLocal = isLocal
+        }
     }
 
     private init() {
         self.baseURL = Secrets.shared.baseURL
         self.anonKey = Secrets.shared.anonKey
+
+        // Check if user chose local-only mode
+        if UserDefaults.standard.bool(forKey: "local_only_mode") {
+            let localUserId = UserDefaults.standard.string(forKey: "local_user_id") ?? UUID().uuidString.lowercased()
+            UserDefaults.standard.set(localUserId, forKey: "local_user_id")
+            self.currentUser = User(id: localUserId, email: "local@device", isLocal: true)
+            self.isAuthenticated = true
+            self.isLocalOnly = true
+            print("📱 Running in local-only mode with ID: \(localUserId)")
+            return
+        }
 
         // Try to restore session from UserDefaults
         if let savedToken = UserDefaults.standard.string(forKey: "supabase_access_token"),
@@ -41,6 +60,7 @@ class SupabaseClient: ObservableObject {
             self.tokenExpiresAt = UserDefaults.standard.object(forKey: "supabase_token_expires_at") as? Date
             self.currentUser = savedUser
             self.isAuthenticated = true
+            self.isLocalOnly = savedUser.isLocal
         }
     }
 
@@ -86,8 +106,9 @@ class SupabaseClient: ObservableObject {
         self.accessToken = accessToken
         self.refreshToken = authResponse.refresh_token
         self.tokenExpiresAt = authResponse.expires_at.flatMap { Date(timeIntervalSince1970: TimeInterval($0)) }
-        self.currentUser = User(id: user.id, email: user.email)
+        self.currentUser = User(id: user.id, email: user.email, isLocal: false)
         self.isAuthenticated = true
+        self.isLocalOnly = false
 
         // Persist session
         UserDefaults.standard.set(accessToken, forKey: "supabase_access_token")
@@ -100,6 +121,8 @@ class SupabaseClient: ObservableObject {
         if let userData = try? JSONEncoder().encode(currentUser) {
             UserDefaults.standard.set(userData, forKey: "supabase_user")
         }
+        // Clear local-only flag
+        UserDefaults.standard.set(false, forKey: "local_only_mode")
     }
 
     func signUp(email: String, password: String) async throws {
@@ -141,8 +164,9 @@ class SupabaseClient: ObservableObject {
         self.accessToken = accessToken
         self.refreshToken = authResponse.refresh_token
         self.tokenExpiresAt = authResponse.expires_at.flatMap { Date(timeIntervalSince1970: TimeInterval($0)) }
-        self.currentUser = User(id: user.id, email: user.email)
+        self.currentUser = User(id: user.id, email: user.email, isLocal: false)
         self.isAuthenticated = true
+        self.isLocalOnly = false
 
         // Persist session
         UserDefaults.standard.set(accessToken, forKey: "supabase_access_token")
@@ -155,6 +179,24 @@ class SupabaseClient: ObservableObject {
         if let userData = try? JSONEncoder().encode(currentUser) {
             UserDefaults.standard.set(userData, forKey: "supabase_user")
         }
+        // Clear local-only flag
+        UserDefaults.standard.set(false, forKey: "local_only_mode")
+    }
+
+    func continueAsLocalOnly() {
+        let localUserId = UUID().uuidString.lowercased()
+        self.currentUser = User(id: localUserId, email: "local@device", isLocal: true)
+        self.isAuthenticated = true
+        self.isLocalOnly = true
+
+        // Persist local-only mode
+        UserDefaults.standard.set(true, forKey: "local_only_mode")
+        UserDefaults.standard.set(localUserId, forKey: "local_user_id")
+        if let userData = try? JSONEncoder().encode(currentUser) {
+            UserDefaults.standard.set(userData, forKey: "supabase_user")
+        }
+
+        print("📱 Continuing in local-only mode with ID: \(localUserId)")
     }
 
     func signOut() {
@@ -163,12 +205,15 @@ class SupabaseClient: ObservableObject {
         self.tokenExpiresAt = nil
         self.currentUser = nil
         self.isAuthenticated = false
+        self.isLocalOnly = false
 
         // Clear persisted session
         UserDefaults.standard.removeObject(forKey: "supabase_access_token")
         UserDefaults.standard.removeObject(forKey: "supabase_refresh_token")
         UserDefaults.standard.removeObject(forKey: "supabase_token_expires_at")
         UserDefaults.standard.removeObject(forKey: "supabase_user")
+        UserDefaults.standard.removeObject(forKey: "local_only_mode")
+        UserDefaults.standard.removeObject(forKey: "local_user_id")
 
         // Clear sync timestamps
         UserDefaults.standard.removeObject(forKey: "lastPullItems")

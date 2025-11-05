@@ -34,7 +34,8 @@ struct RootView: View {
                 if syncService == nil {
                     syncService = SyncService(context: context)
                 }
-                if auth.isAuthenticated && !hasPerformedInitialSync {
+                // Skip sync in local-only mode
+                if auth.isAuthenticated && !auth.isLocalOnly && !hasPerformedInitialSync {
                     hasPerformedInitialSync = true
                     Task {
                         print("🔄 Performing initial sync (Tab .task)")
@@ -44,8 +45,8 @@ struct RootView: View {
                 }
             }
             .onChange(of: auth.isAuthenticated) { _, isAuthenticated in
-                if isAuthenticated {
-                    // Pull all data from Supabase when user signs in
+                if isAuthenticated && !auth.isLocalOnly {
+                    // Pull all data from Supabase when user signs in (skip for local-only)
                     Task {
                         // Ensure syncService is initialized
                         if syncService == nil {
@@ -62,7 +63,8 @@ struct RootView: View {
                 }
             }
             .onChange(of: scenePhase) { _, newPhase in
-                if newPhase == .active {
+                // Skip sync in local-only mode
+                if newPhase == .active && !auth.isLocalOnly {
                     // Process pending syncs when app becomes active
                     Task {
                         await syncService?.processPendingSyncs()

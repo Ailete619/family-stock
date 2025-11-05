@@ -78,6 +78,20 @@ struct AuthView: View {
                 .padding(.horizontal, 32)
 
                 Spacer()
+
+                // Local-only mode option
+                VStack(spacing: 8) {
+                    Text("Or continue without an account")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button {
+                        client.continueAsLocalOnly()
+                    } label: {
+                        Text("Use Local Storage Only")
+                            .font(.subheadline)
+                    }
+                }
+                .padding(.bottom, 32)
             }
             .navigationBarTitleDisplayMode(.inline)
         }

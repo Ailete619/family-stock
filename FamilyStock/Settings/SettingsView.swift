@@ -15,20 +15,42 @@ struct SettingsView: View {
             List {
                 Section {
                     if let user = auth.currentUser {
-                        LabeledContent("Email", value: user.email)
-                        LabeledContent("User ID", value: user.id)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        if auth.isLocalOnly {
+                            LabeledContent("Mode", value: "Local Only")
+                            Text("Your data is stored only on this device")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            LabeledContent("Email", value: user.email)
+                            LabeledContent("User ID", value: user.id)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 } header: {
                     Text("Account")
+                }
+
+                if auth.isLocalOnly {
+                    Section {
+                        Text("Sign in to sync your data across devices")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Button {
+                            auth.signOut()
+                        } label: {
+                            Label("Sign In / Sign Up", systemImage: "person.crop.circle.badge.plus")
+                        }
+                    } header: {
+                        Text("Cloud Sync")
+                    }
                 }
 
                 Section {
                     Button(role: .destructive) {
                         auth.signOut()
                     } label: {
-                        Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+                        Label(auth.isLocalOnly ? "Clear Local Data" : "Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
                     }
                 }
             }
