@@ -44,12 +44,15 @@ final class SyncService {
     func pullItems() async {
         do {
             let lastDate = ISO8601DateFormatter().date(from: lastPullItemsISO)
+            print("🔄 Pulling items updated since: \(lastDate?.description ?? "beginning of time")")
             let dtos = try await itemRepo.fetchUpdatedSince(lastDate)
+            print("📥 Received \(dtos.count) items from Supabase")
             for dto in dtos { try StockItem.upsert(from: dto, in: context) }
             try context.save()
             lastPullItemsISO = ISO8601DateFormatter().string(from: .now)
+            print("✅ Pull items completed, updated lastPullItems timestamp")
         } catch {
-            print("Pull items failed:", error)
+            print("❌ Pull items failed:", error)
         }
     }
 
@@ -92,6 +95,7 @@ final class SyncService {
     func pushItem(_ item: StockItem) async {
         do {
             let dto = item.toDTO()
+            print("📤 Pushing item to Supabase: \(item.name) (id: \(item.id))")
             let _ = try await itemRepo.upsert(dto)
             print("✅ Pushed item: \(item.name)")
         } catch {

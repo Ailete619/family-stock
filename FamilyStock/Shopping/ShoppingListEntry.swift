@@ -21,7 +21,7 @@ final class ShoppingListEntry {
     var isCompleted: Bool = false
 
     init(
-        id: String = UUID().uuidString,
+        id: String = UUID().uuidString.lowercased(),
         userId: String,
         itemId: String,
         desiredQuantity: Double = 1,

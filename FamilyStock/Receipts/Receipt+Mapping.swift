@@ -10,9 +10,12 @@ import Foundation
 
 extension Receipt {
     static func upsert(from dto: ReceiptDTO, items itemDTOs: [ReceiptItemDTO], in ctx: ModelContext) throws {
-        // Fetch existing receipt by ID using a predicate
+        // Normalize ID to lowercase for consistent storage
+        let normalizedId = dto.id.lowercased()
+
+        // Fetch existing receipt by normalized ID
         let predicate = #Predicate<Receipt> { receipt in
-            receipt.id == dto.id
+            receipt.id == normalizedId
         }
         var descriptor = FetchDescriptor<Receipt>(predicate: predicate)
         descriptor.fetchLimit = 1
@@ -25,19 +28,19 @@ extension Receipt {
             existing.timestamp = dto.timestamp
             existing.amount = dto.amount
 
-            // Update receipt items
-            // Remove items that are no longer in the DTO list
-            let dtoItemIds = Set(itemDTOs.map { $0.id })
-            existing.items.removeAll { !dtoItemIds.contains($0.id) }
+            // Update receipt items with normalized IDs
+            let normalizedDtoItemIds = Set(itemDTOs.map { $0.id.lowercased() })
+            existing.items.removeAll { !normalizedDtoItemIds.contains($0.id.lowercased()) }
 
             // Upsert items
             for itemDTO in itemDTOs {
-                if let existingItem = existing.items.first(where: { $0.id == itemDTO.id }) {
+                let normalizedItemId = itemDTO.id.lowercased()
+                if let existingItem = existing.items.first(where: { $0.id.lowercased() == normalizedItemId }) {
                     existingItem.itemName = itemDTO.item_name
                     existingItem.quantity = itemDTO.quantity
                 } else {
                     let newItem = ReceiptItem(
-                        id: itemDTO.id,
+                        id: normalizedItemId,
                         itemName: itemDTO.item_name,
                         quantity: itemDTO.quantity,
                         receipt: existing
@@ -47,9 +50,9 @@ extension Receipt {
                 }
             }
         } else {
-            // Create new receipt
+            // Create new receipt with normalized ID
             let receipt = Receipt(
-                id: dto.id,
+                id: normalizedId,
                 userId: dto.user_id,
                 shopName: dto.shop_name,
                 timestamp: dto.timestamp,
@@ -57,10 +60,10 @@ extension Receipt {
             )
             ctx.insert(receipt)
 
-            // Create receipt items
+            // Create receipt items with normalized IDs
             for itemDTO in itemDTOs {
                 let item = ReceiptItem(
-                    id: itemDTO.id,
+                    id: itemDTO.id.lowercased(),
                     itemName: itemDTO.item_name,
                     quantity: itemDTO.quantity,
                     receipt: receipt

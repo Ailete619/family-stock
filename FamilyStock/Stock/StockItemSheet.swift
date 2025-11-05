@@ -131,7 +131,9 @@ private extension StockItemSheet {
             guard let userId = auth.currentUser?.id else {
                 return // Can't create item without authenticated user
             }
+            // Create item with lowercase UUID to match Supabase format
             let item = StockItem(
+                id: UUID().uuidString.lowercased(),
                 userId: userId,
                 name: trimmedName,
                 category: categoryValue,
@@ -152,6 +154,12 @@ private extension StockItemSheet {
 
         do {
             try context.save()
+            print("💾 Saved item locally: \(savedItem.name) (id: \(savedItem.id))")
+
+            // If quantity in stock is 0, automatically add to shopping list
+            if savedItem.quantityInStock == 0 {
+                addToShoppingList(savedItem)
+            }
 
             // Push to Supabase after successful local save
             Task {
@@ -162,6 +170,47 @@ private extension StockItemSheet {
         }
 
         dismiss()
+    }
+
+    private func addToShoppingList(_ item: StockItem) {
+        // Check if item already exists in shopping list
+        let savedID = item.id
+        let predicate = #Predicate<ShoppingListEntry> { entry in
+            entry.itemId == savedID && entry.isDeleted == false
+        }
+        let descriptor = FetchDescriptor<ShoppingListEntry>(predicate: predicate)
+
+        // If already in shopping list, don't add again
+        if let existingCount = try? context.fetch(descriptor).count, existingCount > 0 {
+            print("📝 Item already in shopping list")
+            return
+        }
+
+        // Add to shopping list with full stock quantity (or 1 if not set)
+        guard let userId = auth.currentUser?.id else {
+            return
+        }
+        let quantity = item.quantityFullStock > 0 ? item.quantityFullStock : 1
+        let entry = ShoppingListEntry(
+            userId: userId,
+            itemId: item.id,
+            desiredQuantity: quantity,
+            unit: ""
+        )
+        entry.updatedAt = Date.now
+        context.insert(entry)
+
+        do {
+            try context.save()
+            print("🛒 Auto-added \(item.name) to shopping list (quantity: \(quantity))")
+
+            // Push shopping entry to Supabase
+            Task {
+                await syncService?.pushShoppingEntry(entry)
+            }
+        } catch {
+            print("❌ Failed to add item to shopping list: \(error)")
+        }
     }
 
     static func format(_ value: Double) -> String {

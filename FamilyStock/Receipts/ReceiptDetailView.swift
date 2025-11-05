@@ -26,11 +26,14 @@ struct ReceiptDetailView: View {
                     Text(receipt.timestamp, format: .dateTime.day().month().year().hour().minute())
                         .foregroundStyle(.secondary)
                 }
-                if let amount = receipt.amount {
-                    HStack {
-                        Text(String(localized: "Amount"))
-                        Spacer()
+                HStack {
+                    Text(String(localized: "Amount"))
+                    Spacer()
+                    if let amount = receipt.amount {
                         Text(amount, format: .currency(code: "USD"))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("-")
                             .foregroundStyle(.secondary)
                     }
                 }

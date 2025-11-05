@@ -18,7 +18,7 @@ final class Receipt {
     @Relationship(deleteRule: .cascade) var items: [ReceiptItem]
 
     init(
-        id: String = UUID().uuidString,
+        id: String = UUID().uuidString.lowercased(),
         userId: String,
         shopName: String,
         timestamp: Date = .now,

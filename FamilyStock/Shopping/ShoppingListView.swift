@@ -125,7 +125,7 @@ struct ShoppingListView: View {
         let receipt = Receipt(userId: userId, shopName: trimmedShopName, timestamp: receiptDate, amount: parsedAmount)
         context.insert(receipt)
 
-        // Create receipt items
+        // Create receipt items and replenish stock
         for entry in completedEntries {
             let receiptItem = ReceiptItem(
                 itemName: nameById[entry.itemId] ?? "Unknown",
@@ -135,6 +135,13 @@ struct ShoppingListView: View {
             context.insert(receiptItem)
             receipt.items.append(receiptItem)
 
+            // Replenish stock quantity for the corresponding stock item
+            if let stockItem = items.first(where: { $0.id == entry.itemId }) {
+                stockItem.quantityInStock += entry.desiredQuantity
+                stockItem.updatedAt = .now
+                print("📦 Replenished \(stockItem.name): +\(entry.desiredQuantity) → \(stockItem.quantityInStock)")
+            }
+
             // Mark shopping entry as deleted
             entry.isDeleted = true
         }
@@ -142,12 +149,16 @@ struct ShoppingListView: View {
         do {
             try context.save()
 
-            // Push receipt and shopping entries to Supabase
+            // Push receipt, shopping entries, and updated stock items to Supabase
             Task {
                 await syncService?.pushReceipt(receipt)
                 // Push each deleted shopping entry
                 for entry in completedEntries {
                     await syncService?.pushShoppingEntry(entry)
+                    // Push the updated stock item if it exists
+                    if let stockItem = items.first(where: { $0.id == entry.itemId }) {
+                        await syncService?.pushItem(stockItem)
+                    }
                 }
             }
 
