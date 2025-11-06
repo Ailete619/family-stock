@@ -12,6 +12,9 @@ import Foundation
 
 @MainActor
 struct OfflineQueueServiceTests {
+
+    // MARK: - StockItem Tests
+
     @Test func queueSync_processes_stockItem_upsert() async throws {
         let fixture = try makeFixture()
         let context = fixture.context
@@ -27,6 +30,20 @@ struct OfflineQueueServiceTests {
         try await waitFor { syncService.pushedItemIds == [item.id] }
 
         #expect(syncService.pushedItemIds == [item.id])
+        let pendingCount = try queue.getPendingSyncCount()
+        #expect(pendingCount == 0)
+    }
+
+    @Test func queueSync_processes_stockItem_delete() async throws {
+        let fixture = try makeFixture()
+        let queue = fixture.queue
+        let syncService = fixture.syncService
+
+        queue.queueSync(entityType: "StockItem", entityId: "item-123", operation: "delete")
+
+        try await waitFor { syncService.deletedItemIds == ["item-123"] }
+
+        #expect(syncService.deletedItemIds == ["item-123"])
         let pendingCount = try queue.getPendingSyncCount()
         #expect(pendingCount == 0)
     }
@@ -54,6 +71,132 @@ struct OfflineQueueServiceTests {
         #expect(pendingCount == 1)
     }
 
+    // MARK: - ShoppingListEntry Tests
+
+    @Test func queueSync_processes_shoppingEntry_upsert() async throws {
+        let fixture = try makeFixture()
+        let context = fixture.context
+        let queue = fixture.queue
+        let syncService = fixture.syncService
+
+        let entry = ShoppingListEntry(
+            userId: "user-123",
+            itemId: "item-123",
+            desiredQuantity: 5,
+            unit: ""
+        )
+        context.insert(entry)
+        try context.save()
+
+        queue.queueSync(entityType: "ShoppingListEntry", entityId: entry.id, operation: "upsert")
+
+        try await waitFor { syncService.pushedShoppingEntryIds == [entry.id] }
+
+        #expect(syncService.pushedShoppingEntryIds == [entry.id])
+        let pendingCount = try queue.getPendingSyncCount()
+        #expect(pendingCount == 0)
+    }
+
+    @Test func queueSync_processes_shoppingEntry_delete() async throws {
+        let fixture = try makeFixture()
+        let queue = fixture.queue
+        let syncService = fixture.syncService
+
+        queue.queueSync(entityType: "ShoppingListEntry", entityId: "entry-123", operation: "delete")
+
+        try await waitFor { syncService.deletedShoppingEntryIds == ["entry-123"] }
+
+        #expect(syncService.deletedShoppingEntryIds == ["entry-123"])
+        let pendingCount = try queue.getPendingSyncCount()
+        #expect(pendingCount == 0)
+    }
+
+    @Test func processPendingSyncs_missing_shoppingEntry_retains_entry() async throws {
+        let fixture = try makeFixture()
+        let context = fixture.context
+        let queue = fixture.queue
+
+        queue.queueSync(entityType: "ShoppingListEntry", entityId: "missing", operation: "upsert")
+
+        try await waitFor {
+            let descriptor = FetchDescriptor<PendingSync>()
+            let pending = (try? context.fetch(descriptor))?.first
+            return pending?.retryCount == 1 && pending?.errorMessage == "Entry not found"
+        }
+
+        let descriptor = FetchDescriptor<PendingSync>()
+        let pending = try context.fetch(descriptor)
+
+        let entry = try #require(pending.first)
+        #expect(entry.retryCount == 1)
+        #expect(entry.errorMessage == "Entry not found")
+        let pendingCount = try queue.getPendingSyncCount()
+        #expect(pendingCount == 1)
+    }
+
+    // MARK: - Receipt Tests
+
+    @Test func queueSync_processes_receipt_upsert() async throws {
+        let fixture = try makeFixture()
+        let context = fixture.context
+        let queue = fixture.queue
+        let syncService = fixture.syncService
+
+        let receipt = Receipt(
+            userId: "user-123",
+            shopName: "Costco"
+        )
+        context.insert(receipt)
+        try context.save()
+
+        queue.queueSync(entityType: "Receipt", entityId: receipt.id, operation: "upsert")
+
+        try await waitFor { syncService.pushedReceiptIds == [receipt.id] }
+
+        #expect(syncService.pushedReceiptIds == [receipt.id])
+        let pendingCount = try queue.getPendingSyncCount()
+        #expect(pendingCount == 0)
+    }
+
+    @Test func queueSync_processes_receipt_delete() async throws {
+        let fixture = try makeFixture()
+        let queue = fixture.queue
+        let syncService = fixture.syncService
+
+        queue.queueSync(entityType: "Receipt", entityId: "receipt-123", operation: "delete")
+
+        try await waitFor { syncService.deletedReceiptIds == ["receipt-123"] }
+
+        #expect(syncService.deletedReceiptIds == ["receipt-123"])
+        let pendingCount = try queue.getPendingSyncCount()
+        #expect(pendingCount == 0)
+    }
+
+    @Test func processPendingSyncs_missing_receipt_retains_entry() async throws {
+        let fixture = try makeFixture()
+        let context = fixture.context
+        let queue = fixture.queue
+
+        queue.queueSync(entityType: "Receipt", entityId: "missing", operation: "upsert")
+
+        try await waitFor {
+            let descriptor = FetchDescriptor<PendingSync>()
+            let pending = (try? context.fetch(descriptor))?.first
+            return pending?.retryCount == 1 && pending?.errorMessage == "Receipt not found"
+        }
+
+        let descriptor = FetchDescriptor<PendingSync>()
+        let pending = try context.fetch(descriptor)
+
+        let entry = try #require(pending.first)
+        #expect(entry.retryCount == 1)
+        #expect(entry.errorMessage == "Receipt not found")
+        let pendingCount = try queue.getPendingSyncCount()
+        #expect(pendingCount == 1)
+    }
+
+    // MARK: - General Retry Logic Tests
+
     @Test func processPendingSyncs_drops_entries_after_max_retries() async throws {
         let fixture = try makeFixture()
         let context = fixture.context
@@ -75,6 +218,43 @@ struct OfflineQueueServiceTests {
 
         let remaining = try queue.getPendingSyncCount()
         #expect(remaining == 0)
+    }
+
+    @Test func processPendingSyncs_processes_multiple_entities() async throws {
+        let fixture = try makeFixture()
+        let context = fixture.context
+        let queue = fixture.queue
+        let syncService = fixture.syncService
+
+        // Create entities
+        let item = StockItem(userId: "user-123", name: "Milk")
+        let entry = ShoppingListEntry(userId: "user-123", itemId: "item-123", desiredQuantity: 5, unit: "")
+        let receipt = Receipt(userId: "user-123", shopName: "Costco")
+
+        context.insert(item)
+        context.insert(entry)
+        context.insert(receipt)
+        try context.save()
+
+        // Queue all of them
+        queue.queueSync(entityType: "StockItem", entityId: item.id, operation: "upsert")
+        queue.queueSync(entityType: "ShoppingListEntry", entityId: entry.id, operation: "upsert")
+        queue.queueSync(entityType: "Receipt", entityId: receipt.id, operation: "upsert")
+
+        // Wait for all syncs to complete
+        try await waitFor {
+            syncService.pushedItemIds.count == 1 &&
+            syncService.pushedShoppingEntryIds.count == 1 &&
+            syncService.pushedReceiptIds.count == 1
+        }
+
+        // Verify all synced
+        #expect(syncService.pushedItemIds == [item.id])
+        #expect(syncService.pushedShoppingEntryIds == [entry.id])
+        #expect(syncService.pushedReceiptIds == [receipt.id])
+
+        let pendingCount = try queue.getPendingSyncCount()
+        #expect(pendingCount == 0)
     }
 }
 

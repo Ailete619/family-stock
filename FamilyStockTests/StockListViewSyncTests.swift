@@ -4,6 +4,12 @@
 //
 //  Created by Claude on 2025/11/06.
 //
+//  NOTE: These tests document the expected sync behavior and verify the
+//  sync service integration. They simulate the flow that StockListView
+//  follows but don't directly test the private view methods due to SwiftUI
+//  testing limitations. The production code correctness should be verified
+//  through UI tests and manual testing.
+//
 
 import Testing
 import SwiftData
@@ -13,125 +19,67 @@ import Foundation
 @MainActor
 struct StockListViewSyncTests {
 
-    // MARK: - updateQuantity Tests
+    // MARK: - Sync Behavior Specification Tests
+    // These tests document and verify the expected sync behavior that
+    // StockListView.updateQuantity() should follow
 
-    @Test func updateQuantity_saves_to_context() async throws {
+    @Test func quantity_update_should_save_and_sync_when_online() async throws {
         let fixture = try makeFixture()
         let context = fixture.context
+        let syncService = fixture.syncService
+
         let item = StockItem(userId: "user-123", name: "Milk", quantityInStock: 5)
         context.insert(item)
         try context.save()
 
-        // Simulate quantity update
+        // Simulate the flow that StockListView.updateQuantity() performs:
+        // 1. Update the item
         item.quantityInStock = 4
         item.updatedAt = .now
 
-        // Save should succeed
+        // 2. Save to context
         try context.save()
 
-        // Verify quantity was saved
+        // 3. Sync to Supabase (when online)
+        await syncService.pushItem(item)
+
+        // Verify the expected outcome
         let descriptor = FetchDescriptor<StockItem>()
         let items = try context.fetch(descriptor)
         #expect(items.first?.quantityInStock == 4)
-    }
-
-    @Test func updateQuantity_does_not_sync_when_local_only() async throws {
-        let fixture = try makeFixture()
-        let context = fixture.context
-        let syncService = fixture.syncService
-
-        let item = StockItem(userId: "user-123", name: "Milk", quantityInStock: 5)
-        context.insert(item)
-        try context.save()
-
-        // Simulate local-only mode by NOT calling syncService
-        item.quantityInStock = 4
-        try context.save()
-
-        // Verify no sync occurred
-        #expect(syncService.pushedItemIds.isEmpty)
-    }
-
-    @Test func updateQuantity_syncs_when_online() async throws {
-        let fixture = try makeFixture()
-        let context = fixture.context
-        let syncService = fixture.syncService
-
-        let item = StockItem(userId: "user-123", name: "Milk", quantityInStock: 5)
-        context.insert(item)
-        try context.save()
-
-        // Simulate online sync
-        item.quantityInStock = 4
-        item.updatedAt = .now
-        try context.save()
-
-        await syncService.pushItem(item)
-
-        // Verify sync occurred
         #expect(syncService.pushedItemIds == [item.id])
     }
 
-    // MARK: - addToShoppingList Tests
-
-    @Test func addToShoppingList_creates_new_entry() async throws {
+    @Test func quantity_update_should_save_locally_only_when_offline() async throws {
         let fixture = try makeFixture()
         let context = fixture.context
+        let syncService = fixture.syncService
 
-        let item = StockItem(userId: "user-123", name: "Milk", quantityFullStock: 12)
+        let item = StockItem(userId: "user-123", name: "Milk", quantityInStock: 5)
         context.insert(item)
         try context.save()
 
-        // Create shopping list entry
-        let entry = ShoppingListEntry(
-            userId: "user-123",
-            itemId: item.id,
-            desiredQuantity: 12,
-            unit: ""
-        )
-        entry.updatedAt = .now
-        context.insert(entry)
+        // Simulate the flow when isLocalOnly = true:
+        // 1. Update the item
+        item.quantityInStock = 4
+        item.updatedAt = .now
+
+        // 2. Save to context
         try context.save()
 
-        // Verify entry was created
-        let descriptor = FetchDescriptor<ShoppingListEntry>()
-        let entries = try context.fetch(descriptor)
-        #expect(entries.count == 1)
-        #expect(entries.first?.itemId == item.id)
-        #expect(entries.first?.desiredQuantity == 12)
+        // 3. Skip sync (guard returns early)
+        // (no sync call)
+
+        // Verify the expected outcome
+        let descriptor = FetchDescriptor<StockItem>()
+        let items = try context.fetch(descriptor)
+        #expect(items.first?.quantityInStock == 4)
+        #expect(syncService.pushedItemIds.isEmpty)
     }
 
-    @Test func addToShoppingList_updates_existing_entry() async throws {
-        let fixture = try makeFixture()
-        let context = fixture.context
+    // MARK: - Shopping List Sync Behavior
 
-        let item = StockItem(userId: "user-123", name: "Milk", quantityFullStock: 12)
-        context.insert(item)
-        try context.save()
-
-        // Create initial entry
-        let entry = ShoppingListEntry(
-            userId: "user-123",
-            itemId: item.id,
-            desiredQuantity: 6,
-            unit: ""
-        )
-        context.insert(entry)
-        try context.save()
-
-        // Update existing entry
-        entry.desiredQuantity = 12
-        entry.updatedAt = .now
-        try context.save()
-
-        // Verify entry was updated
-        let descriptor = FetchDescriptor<ShoppingListEntry>()
-        let entries = try context.fetch(descriptor)
-        #expect(entries.count == 1)
-        #expect(entries.first?.desiredQuantity == 12)
-    }
-
-    @Test func addToShoppingList_syncs_when_online() async throws {
+    @Test func shopping_list_should_sync_new_entries_when_online() async throws {
         let fixture = try makeFixture()
         let context = fixture.context
         let syncService = fixture.syncService
@@ -140,44 +88,72 @@ struct StockListViewSyncTests {
         context.insert(item)
         try context.save()
 
+        // Simulate StockListView.addToShoppingList() flow:
         let entry = ShoppingListEntry(
             userId: "user-123",
             itemId: item.id,
             desiredQuantity: 12,
             unit: ""
         )
+        entry.updatedAt = .now
         context.insert(entry)
         try context.save()
 
-        // Simulate sync
+        // Sync when online
         await syncService.pushShoppingEntry(entry)
 
-        // Verify sync occurred
+        // Verify expected outcome
         #expect(syncService.pushedShoppingEntryIds == [entry.id])
     }
 
-    // MARK: - delete Tests
+    // MARK: - Delete/Archive Sync Behavior
 
-    @Test func delete_archives_item() async throws {
+    @Test func delete_should_archive_and_sync_when_online() async throws {
         let fixture = try makeFixture()
         let context = fixture.context
+        let syncService = fixture.syncService
 
         let item = StockItem(userId: "user-123", name: "Milk")
         context.insert(item)
         try context.save()
 
-        // Archive item
+        // Simulate StockListView.delete() flow:
         item.isArchived = true
         item.updatedAt = .now
         try context.save()
 
-        // Verify item is archived
-        let descriptor = FetchDescriptor<StockItem>()
-        let items = try context.fetch(descriptor)
-        #expect(items.first?.isArchived == true)
+        // Sync when online
+        await syncService.pushItem(item)
+
+        // Verify expected outcome
+        #expect(item.isArchived == true)
+        #expect(syncService.pushedItemIds == [item.id])
     }
 
-    @Test func delete_filters_archived_items() async throws {
+    @Test func delete_should_archive_locally_only_when_offline() async throws {
+        let fixture = try makeFixture()
+        let context = fixture.context
+        let syncService = fixture.syncService
+
+        let item = StockItem(userId: "user-123", name: "Milk")
+        context.insert(item)
+        try context.save()
+
+        // Simulate delete when isLocalOnly = true:
+        item.isArchived = true
+        item.updatedAt = .now
+        try context.save()
+
+        // Skip sync (guard returns early)
+
+        // Verify expected outcome
+        #expect(item.isArchived == true)
+        #expect(syncService.pushedItemIds.isEmpty)
+    }
+
+    // MARK: - Data Model Tests
+
+    @Test func archived_items_can_be_filtered() async throws {
         let fixture = try makeFixture()
         let context = fixture.context
 
@@ -187,11 +163,10 @@ struct StockListViewSyncTests {
         context.insert(item2)
         try context.save()
 
-        // Archive one item
         item1.isArchived = true
         try context.save()
 
-        // Fetch non-archived items
+        // Verify filtering works (as used in StockListView body)
         var descriptor = FetchDescriptor<StockItem>()
         descriptor.predicate = #Predicate<StockItem> { item in
             item.isArchived == false
@@ -202,63 +177,7 @@ struct StockListViewSyncTests {
         #expect(activeItems.first?.name == "Bread")
     }
 
-    @Test func delete_syncs_when_online() async throws {
-        let fixture = try makeFixture()
-        let context = fixture.context
-        let syncService = fixture.syncService
-
-        let item = StockItem(userId: "user-123", name: "Milk")
-        context.insert(item)
-        try context.save()
-
-        // Archive and sync
-        item.isArchived = true
-        item.updatedAt = .now
-        try context.save()
-
-        await syncService.pushItem(item)
-
-        // Verify sync occurred
-        #expect(syncService.pushedItemIds == [item.id])
-    }
-
-    @Test func delete_does_not_sync_when_local_only() async throws {
-        let fixture = try makeFixture()
-        let context = fixture.context
-        let syncService = fixture.syncService
-
-        let item = StockItem(userId: "user-123", name: "Milk")
-        context.insert(item)
-        try context.save()
-
-        // Archive without sync (local-only mode)
-        item.isArchived = true
-        try context.save()
-
-        // Verify no sync occurred
-        #expect(syncService.pushedItemIds.isEmpty)
-    }
-
-    // MARK: - StockListRow decreaseQuantity Tests
-
-    @Test func decreaseQuantity_updates_quantity() async throws {
-        let fixture = try makeFixture()
-        let context = fixture.context
-
-        let item = StockItem(userId: "user-123", name: "Milk", quantityInStock: 5)
-        context.insert(item)
-        try context.save()
-
-        // Simulate decrease
-        item.quantityInStock = max(0, item.quantityInStock - 1)
-        item.updatedAt = .now
-        try context.save()
-
-        // Verify quantity decreased
-        #expect(item.quantityInStock == 4)
-    }
-
-    @Test func decreaseQuantity_does_not_go_below_zero() async throws {
+    @Test func quantity_cannot_go_below_zero() async throws {
         let fixture = try makeFixture()
         let context = fixture.context
 
@@ -266,71 +185,11 @@ struct StockListViewSyncTests {
         context.insert(item)
         try context.save()
 
-        // Try to decrease below zero
+        // Verify the max(0, ...) logic used in decreaseQuantity
         item.quantityInStock = max(0, item.quantityInStock - 1)
         try context.save()
 
-        // Verify quantity stays at 0
         #expect(item.quantityInStock == 0)
-    }
-
-    @Test func decreaseQuantity_triggers_sync() async throws {
-        let fixture = try makeFixture()
-        let context = fixture.context
-        let syncService = fixture.syncService
-
-        let item = StockItem(userId: "user-123", name: "Milk", quantityInStock: 5)
-        context.insert(item)
-        try context.save()
-
-        // Decrease and sync
-        item.quantityInStock = max(0, item.quantityInStock - 1)
-        item.updatedAt = .now
-        try context.save()
-
-        await syncService.pushItem(item)
-
-        // Verify sync occurred
-        #expect(syncService.pushedItemIds == [item.id])
-    }
-
-    // MARK: - Integration Tests
-
-    @Test func multiple_operations_sync_correctly() async throws {
-        let fixture = try makeFixture()
-        let context = fixture.context
-        let syncService = fixture.syncService
-
-        let item = StockItem(userId: "user-123", name: "Milk", quantityInStock: 5)
-        context.insert(item)
-        try context.save()
-
-        // Decrease quantity
-        item.quantityInStock = 4
-        item.updatedAt = .now
-        try context.save()
-        await syncService.pushItem(item)
-
-        // Create shopping entry
-        let entry = ShoppingListEntry(
-            userId: "user-123",
-            itemId: item.id,
-            desiredQuantity: 12,
-            unit: ""
-        )
-        context.insert(entry)
-        try context.save()
-        await syncService.pushShoppingEntry(entry)
-
-        // Archive item
-        item.isArchived = true
-        item.updatedAt = .now
-        try context.save()
-        await syncService.pushItem(item)
-
-        // Verify all syncs occurred
-        #expect(syncService.pushedItemIds.count == 2)
-        #expect(syncService.pushedShoppingEntryIds.count == 1)
     }
 }
 
@@ -351,6 +210,10 @@ private func makeFixture() throws -> (context: ModelContext, syncService: MockSy
     let syncService = MockSyncService()
     return (context, syncService)
 }
+
+// Note: This mock service is used to verify that the production code
+// would call the sync methods with the correct parameters. It doesn't
+// test the actual StockListView methods due to SwiftUI testing limitations.
 
 @MainActor
 private final class MockSyncService: SyncServiceProtocol {
