@@ -9,7 +9,17 @@ import SwiftData
 import SwiftUI
 
 @MainActor
-final class SyncService {
+protocol SyncServiceProtocol {
+    func pushItem(_ item: StockItem) async
+    func pushShoppingEntry(_ entry: ShoppingListEntry) async
+    func pushReceipt(_ receipt: Receipt) async
+    func deleteItem(_ itemId: String) async
+    func deleteShoppingEntry(_ entryId: String) async
+    func deleteReceipt(_ receiptId: String) async
+}
+
+@MainActor
+class SyncService: SyncServiceProtocol {
     private let itemRepo: ItemRepository
     private let shoppingRepo: ShoppingListEntryRepository
     private let receiptRepo: ReceiptRepository

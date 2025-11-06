@@ -4,7 +4,8 @@
       "Bash(swift test:*)",
       "Bash(xcodebuild build-for-testing:*)",
       "Bash(xcodebuild test-without-building:*)",
-      "Bash(xcodebuild build -scheme FamilyStock -destination 'platform=iOS Simulator,id=58608611-172B-44C3-AAA9-8EA7718720BD')"
+      "Bash(xcodebuild build -scheme FamilyStock -destination 'platform=iOS Simulator,id=58608611-172B-44C3-AAA9-8EA7718720BD')",
+      "Bash(xcodebuild test:*)"
     ],
     "deny": [],
     "ask": []

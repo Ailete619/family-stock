@@ -11,10 +11,10 @@ import Foundation
 @MainActor
 final class OfflineQueueService {
     private let context: ModelContext
-    private let syncService: SyncService
+    private let syncService: SyncServiceProtocol
     private var isProcessing = false
 
-    init(context: ModelContext, syncService: SyncService) {
+    init(context: ModelContext, syncService: SyncServiceProtocol) {
         self.context = context
         self.syncService = syncService
     }

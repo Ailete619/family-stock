@@ -15,26 +15,28 @@ struct StockItemTests {
     // MARK: - Model Creation Tests
 
     @Test func stockItem_initializes_with_defaults() {
-        let item = StockItem(name: "Milk")
+        let item = StockItem(userId: "user-123", name: "Milk")
 
         #expect(item.name == "Milk")
         #expect(item.category == nil)
         #expect(item.isArchived == false)
         #expect(item.quantityInStock == 0)
         #expect(item.quantityFullStock == 0)
+        #expect(item.userId == "user-123")
         #expect(!item.id.isEmpty)
     }
 
     @Test func stockItem_initializes_with_category() {
-        let item = StockItem(name: "Milk", category: "Dairy")
+        let item = StockItem(userId: "user-123", name: "Milk", category: "Dairy")
 
         #expect(item.name == "Milk")
         #expect(item.category == "Dairy")
         #expect(item.isArchived == false)
+        #expect(item.userId == "user-123")
     }
 
     @Test func stockItem_initializes_with_quantity() {
-        let item = StockItem(name: "Milk", quantityInStock: 2.5)
+        let item = StockItem(userId: "user-123", name: "Milk", quantityInStock: 2.5)
 
         #expect(item.name == "Milk")
         #expect(item.quantityInStock == 2.5)
@@ -42,13 +44,18 @@ struct StockItemTests {
     }
 
     @Test func stockItem_initializes_with_full_stock_count() {
-        let item = StockItem(name: "Milk", quantityFullStock: 12)
+        let item = StockItem(userId: "user-123", name: "Milk", quantityFullStock: 12)
 
         #expect(item.quantityFullStock == 12)
     }
 
     @Test func stockItem_initializes_with_both_quantities() {
-        let item = StockItem(name: "Milk", quantityInStock: 5, quantityFullStock: 12)
+        let item = StockItem(
+            userId: "user-123",
+            name: "Milk",
+            quantityInStock: 5,
+            quantityFullStock: 12
+        )
 
         #expect(item.name == "Milk")
         #expect(item.quantityInStock == 5)
@@ -65,6 +72,7 @@ struct StockItemTests {
 
         // Insert item
         let item = StockItem(
+            userId: "user-123",
             name: "Test Item",
             category: "Test Category",
             quantityFullStock: 24
@@ -80,6 +88,7 @@ struct StockItemTests {
         #expect(fetchedItems.first?.name == "Test Item")
         #expect(fetchedItems.first?.category == "Test Category")
         #expect(fetchedItems.first?.quantityFullStock == 24)
+        #expect(fetchedItems.first?.userId == "user-123")
     }
 
     @Test func stockItem_persists_after_save() throws {
@@ -88,7 +97,7 @@ struct StockItemTests {
         let context = ModelContext(container)
 
         // Insert and save
-        let item = StockItem(name: "Persistent Item")
+        let item = StockItem(userId: "user-123", name: "Persistent Item")
         let itemId = item.id
         context.insert(item)
         try context.save()
@@ -101,6 +110,7 @@ struct StockItemTests {
         #expect(fetchedItems.count == 1)
         #expect(fetchedItems.first?.id == itemId)
         #expect(fetchedItems.first?.name == "Persistent Item")
+        #expect(fetchedItems.first?.userId == "user-123")
     }
 
     @Test func stockItem_can_be_updated() throws {
@@ -109,7 +119,7 @@ struct StockItemTests {
         let context = ModelContext(container)
 
         // Insert item
-        let item = StockItem(name: "Original Name")
+        let item = StockItem(userId: "user-123", name: "Original Name")
         context.insert(item)
         try context.save()
 
@@ -127,6 +137,7 @@ struct StockItemTests {
         #expect(fetchedItems.first?.name == "Updated Name")
         #expect(fetchedItems.first?.quantityInStock == 5.0)
         #expect(fetchedItems.first?.quantityFullStock == 12.0)
+        #expect(fetchedItems.first?.userId == "user-123")
     }
 
     @Test func stockItem_soft_delete_works() throws {
@@ -135,7 +146,7 @@ struct StockItemTests {
         let context = ModelContext(container)
 
         // Insert item
-        let item = StockItem(name: "To Delete")
+        let item = StockItem(userId: "user-123", name: "To Delete")
         context.insert(item)
         try context.save()
 
@@ -165,9 +176,9 @@ struct StockItemTests {
 
         // Insert multiple items
         let items = [
-            StockItem(name: "Milk", category: "Dairy"),
-            StockItem(name: "Bread", category: "Bakery"),
-            StockItem(name: "Apples", category: "Produce")
+            StockItem(userId: "user-123", name: "Milk", category: "Dairy"),
+            StockItem(userId: "user-123", name: "Bread", category: "Bakery"),
+            StockItem(userId: "user-123", name: "Apples", category: "Produce")
         ]
 
         items.forEach { context.insert($0) }
@@ -188,8 +199,8 @@ struct StockItemTests {
         let container = try ModelContainer(for: StockItem.self, configurations: config)
         let context = ModelContext(container)
 
-        let item1 = StockItem(name: "Item 1")
-        let item2 = StockItem(name: "Item 2")
+        let item1 = StockItem(userId: "user-123", name: "Item 1")
+        let item2 = StockItem(userId: "user-123", name: "Item 2")
 
         #expect(item1.id != item2.id)
 
@@ -211,7 +222,7 @@ struct StockItemTests {
         let context = ModelContext(container)
 
         // Create item with quantity
-        let item = StockItem(name: "Test Item", quantityInStock: 5)
+        let item = StockItem(userId: "user-123", name: "Test Item", quantityInStock: 5)
         context.insert(item)
         try context.save()
 
