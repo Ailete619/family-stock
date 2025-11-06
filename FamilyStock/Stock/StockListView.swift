@@ -39,6 +39,7 @@ struct StockListView: View {
             }
             .refreshable {
                 // Pull stock items from Supabase
+                guard !auth.isLocalOnly else { return }
                 await syncService?.pullItems()
             }
             .toolbar {
