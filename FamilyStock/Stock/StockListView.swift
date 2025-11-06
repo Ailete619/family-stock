@@ -121,5 +121,19 @@ private extension StockListView {
         } catch {
             assertionFailure("Failed to add item to shopping list: \(error)")
         }
+
+        // Sync changes to Supabase
+        guard let syncService = syncService, !auth.isLocalOnly else { return }
+
+        Task {
+            do {
+                // Push the shopping entry changes
+                if let existing = (try? context.fetch(descriptor))?.first {
+                    try await syncService.pushShoppingEntry(existing)
+                }
+            } catch {
+                print("Failed to sync shopping entry: \(error)")
+            }
+        }
     }
 }
