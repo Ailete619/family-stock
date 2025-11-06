@@ -15,6 +15,7 @@ struct StockListRow: View {
     var onEdit: () -> Void
     var onDelete: () -> Void
     var onAddToShopping: () -> Void
+    var onQuantityChange: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -100,7 +101,9 @@ struct StockListRow: View {
         // Decrease quantity by 1, but don't go below 0
         item.quantityInStock = max(0, item.quantityInStock - 1)
         item.updatedAt = .now
-        try? context.save()
+
+        // Bubble up to parent for save + sync
+        onQuantityChange()
 
         // If we just hit zero, automatically add to shopping list
         if previousQuantity > 0 && item.quantityInStock == 0 {

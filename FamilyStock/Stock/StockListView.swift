@@ -26,7 +26,8 @@ struct StockListView: View {
                     item: item,
                     onEdit: { itemBeingEdited = item },
                     onDelete: { pendingDeletion = item },
-                    onAddToShopping: { addToShoppingList(item) }
+                    onAddToShopping: { addToShoppingList(item) },
+                    onQuantityChange: { updateQuantity(item) }
                 )
             }
             .navigationTitle(String(localized: "Stock"))   // i18n-ready
@@ -73,6 +74,22 @@ struct StockListView: View {
 }
 
 private extension StockListView {
+    func updateQuantity(_ item: StockItem) {
+        do {
+            try context.save()
+        } catch {
+            assertionFailure("Failed to save quantity change: \(error)")
+            return
+        }
+
+        // Sync to Supabase
+        guard let syncService = syncService, !auth.isLocalOnly else { return }
+
+        Task {
+            await syncService.pushItem(item)
+        }
+    }
+
     func delete(_ item: StockItem) {
         withAnimation {
             item.isArchived = true
