@@ -101,8 +101,10 @@ private extension StockListView {
             try context.save()
 
             // Push the archived state to Supabase
+            guard let syncService = syncService, !auth.isLocalOnly else { return }
+
             Task {
-                await syncService?.pushItem(item)
+                await syncService.pushItem(item)
             }
         } catch {
             assertionFailure("Failed to delete item: \(error)")
