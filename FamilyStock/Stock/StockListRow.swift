@@ -22,10 +22,12 @@ struct StockListRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.name)
                     .font(.headline)
+                    .accessibilityIdentifier("ItemName_\(item.id)")
                 if let category = item.category, !category.isEmpty {
                     Text(category)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("ItemCategory_\(item.id)")
                 }
             }
 

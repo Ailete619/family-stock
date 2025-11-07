@@ -22,11 +22,14 @@ struct ReceiptListView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(receipt.shopName)
                             .font(.headline)
+                            .accessibilityIdentifier("ReceiptShopName_\(receipt.id)")
                         Text(receipt.timestamp, format: .dateTime.day().month().year().hour().minute())
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("ReceiptTimestamp_\(receipt.id)")
                     }
                 }
+                .accessibilityIdentifier("ReceiptRow_\(receipt.id)")
             }
             .navigationTitle(String(localized: "Receipts"))
             .task {

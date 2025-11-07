@@ -56,6 +56,7 @@ struct ShoppingListView: View {
                     } label: {
                         Label(String(localized: "Save Receipt"), systemImage: "archivebox")
                     }
+                    .accessibilityIdentifier("SaveReceiptButton")
                 }
             }
             .sheet(isPresented: $showingSaveSheet) {
@@ -64,15 +65,18 @@ struct ShoppingListView: View {
                         Section {
                             TextField(String(localized: "Shop Name"), text: $shopName)
                                 .textInputAutocapitalization(.words)
+                                .accessibilityIdentifier("ReceiptShopNameField")
 
                             DatePicker(
                                 String(localized: "Date & Time"),
                                 selection: $receiptDate,
                                 displayedComponents: [.date, .hourAndMinute]
                             )
+                            .accessibilityIdentifier("ReceiptDatePicker")
 
                             TextField(String(localized: "Amount (optional)"), text: $amountText)
                                 .keyboardType(.decimalPad)
+                                .accessibilityIdentifier("ReceiptAmountField")
                         } header: {
                             Text(String(localized: "Receipt Details"))
                         }
@@ -192,7 +196,7 @@ struct ShoppingListRow: View {
                 .font(.body)
                 .strikethrough(entry.isCompleted, color: .secondary)
                 .foregroundStyle(entry.isCompleted ? .secondary : .primary)
-                .accessibilityIdentifier("ShoppingItem_\(sanitized(itemName))")
+                .accessibilityIdentifier("ShoppingItemName_\(entry.id)")
 
             Spacer()
 
@@ -208,6 +212,7 @@ struct ShoppingListRow: View {
                 .onAppear {
                     quantityText = format(entry.desiredQuantity)
                 }
+                .accessibilityIdentifier("ShoppingItemQuantity_\(entry.id)")
 
             Button {
                 toggleCompleted()
@@ -218,8 +223,10 @@ struct ShoppingListRow: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(entry.isCompleted ? String(localized: "Mark as incomplete") : String(localized: "Mark as complete"))
+            .accessibilityIdentifier("ShoppingItemCheckbox_\(entry.id)")
         }
         .contentShape(Rectangle())
+        .accessibilityIdentifier("ShoppingItemRow_\(entry.id)")
     }
 
     private func format(_ d: Double) -> String {

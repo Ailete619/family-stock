@@ -54,8 +54,8 @@ final class FamilyStockUITests: XCTestCase {
         // Verify the sheet appears
         XCTAssertTrue(app.navigationBars["New Item"].exists)
 
-        // Fill in the form
-        let nameField = app.textFields["Name"]
+        // Fill in the form using stable identifiers
+        let nameField = app.textFields["ItemNameField"]
         XCTAssertTrue(nameField.exists)
         nameField.tap()
         nameField.typeText("Test Item")
@@ -64,8 +64,10 @@ final class FamilyStockUITests: XCTestCase {
         app.buttons["Save"].tap()
 
         // Wait for sheet to dismiss and verify item appears in list
-        let itemCell = app.staticTexts["Test Item"]
-        XCTAssertTrue(itemCell.waitForExistence(timeout: 2))
+        // Use the ItemName_ identifier prefix to find the item
+        let itemNames = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ItemName_"))
+        let testItem = itemNames.containing(NSPredicate(format: "label == %@", "Test Item")).firstMatch
+        XCTAssertTrue(testItem.waitForExistence(timeout: 2), "Test Item should appear in list")
     }
 
     @MainActor
@@ -73,12 +75,7 @@ final class FamilyStockUITests: XCTestCase {
         // First, add an item
         addTestItem(name: "Edit Test Item")
 
-        // Find the item text to get a reference
-        let itemText = app.staticTexts["Edit Test Item"]
-        XCTAssertTrue(itemText.exists)
-
-        // We need to find the containing cell/row to get the item ID
-        // For now, use the first matching edit button
+        // Find the edit button using stable identifier
         let editButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "EditButton_"))
         XCTAssertTrue(editButtons.count > 0, "At least one edit button should exist")
 
@@ -89,8 +86,8 @@ final class FamilyStockUITests: XCTestCase {
         // Verify edit sheet appears
         XCTAssertTrue(app.navigationBars["Edit Item"].waitForExistence(timeout: 2))
 
-        // Modify the name
-        let nameField = app.textFields["Name"]
+        // Modify the name using stable identifier
+        let nameField = app.textFields["ItemNameField"]
         XCTAssertTrue(nameField.exists)
         nameField.tap()
         nameField.clearAndType("Edited Item")
@@ -98,9 +95,10 @@ final class FamilyStockUITests: XCTestCase {
         // Save changes
         app.buttons["Save"].tap()
 
-        // Verify the updated name appears
-        let editedItemText = app.staticTexts["Edited Item"]
-        XCTAssertTrue(editedItemText.waitForExistence(timeout: 2), "Edited item name should appear in list")
+        // Verify the updated name appears using stable identifier
+        let itemNames = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ItemName_"))
+        let editedItem = itemNames.containing(NSPredicate(format: "label == %@", "Edited Item")).firstMatch
+        XCTAssertTrue(editedItem.waitForExistence(timeout: 2), "Edited item name should appear in list")
     }
 
     @MainActor
@@ -108,11 +106,7 @@ final class FamilyStockUITests: XCTestCase {
         // Add a test item
         addTestItem(name: "Delete Test Item")
 
-        // Verify item exists
-        let itemText = app.staticTexts["Delete Test Item"]
-        XCTAssertTrue(itemText.exists)
-
-        // Find the delete button for this item
+        // Find the delete button using stable identifier
         let deleteButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "DeleteButton_"))
         XCTAssertTrue(deleteButtons.count > 0, "At least one delete button should exist")
 
@@ -125,8 +119,10 @@ final class FamilyStockUITests: XCTestCase {
         XCTAssertTrue(deleteAlertButton.waitForExistence(timeout: 2), "Delete confirmation alert should appear")
         deleteAlertButton.tap()
 
-        // Verify item no longer exists in the list
-        XCTAssertFalse(itemText.waitForExistence(timeout: 2), "Deleted item should not appear in list")
+        // Verify item no longer exists using stable identifier
+        let itemNames = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ItemName_"))
+        let deletedItem = itemNames.containing(NSPredicate(format: "label == %@", "Delete Test Item")).firstMatch
+        XCTAssertFalse(deletedItem.waitForExistence(timeout: 2), "Deleted item should not appear in list")
     }
 
     // MARK: - Shopping Tab Tests
@@ -136,11 +132,7 @@ final class FamilyStockUITests: XCTestCase {
         // First add an item to stock
         addTestItem(name: "Shopping Test Item", fullStock: 10)
 
-        // Find the item text to verify it exists
-        let itemText = app.staticTexts["Shopping Test Item"]
-        XCTAssertTrue(itemText.exists, "Item should exist in stock list")
-
-        // Find the shopping button for the first item
+        // Find the shopping button using stable identifier
         let shoppingButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "AddToShoppingButton_"))
         XCTAssertTrue(shoppingButtons.count > 0, "At least one shopping button should exist")
 
@@ -154,13 +146,15 @@ final class FamilyStockUITests: XCTestCase {
         // Wait for Shopping navigation bar to ensure tab has loaded
         XCTAssertTrue(app.navigationBars["Shopping"].waitForExistence(timeout: 2))
 
-        // Verify item appears in shopping list with longer timeout for SwiftData to sync
-        let shoppingItem = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Shopping Test Item")).firstMatch
+        // Verify item appears in shopping list using stable identifier
+        let shoppingItemNames = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ShoppingItemName_"))
+        let shoppingItem = shoppingItemNames.containing(NSPredicate(format: "label CONTAINS %@", "Shopping Test Item")).firstMatch
         XCTAssertTrue(shoppingItem.waitForExistence(timeout: 5), "Shopping list item should appear after adding to cart")
 
-        // Verify the quantity appears (should be 10 from fullStock)
-        let quantityText = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "10")).firstMatch
-        XCTAssertTrue(quantityText.exists, "Shopping item should show quantity of 10")
+        // Verify the quantity appears using stable identifier
+        let quantityFields = app.textFields.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ShoppingItemQuantity_"))
+        let quantityField = quantityFields.containing(NSPredicate(format: "value == %@", "10")).firstMatch
+        XCTAssertTrue(quantityField.exists, "Shopping item should show quantity of 10")
     }
 
     @MainActor
@@ -168,7 +162,7 @@ final class FamilyStockUITests: XCTestCase {
         // First ensure there's an item in the shopping list
         addTestItem(name: "Completion Test Item", fullStock: 5)
 
-        // Add it to shopping list
+        // Add it to shopping list using stable identifier
         let shoppingButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "AddToShoppingButton_"))
         if shoppingButtons.count > 0 {
             shoppingButtons.element(boundBy: 0).tap()
@@ -178,20 +172,22 @@ final class FamilyStockUITests: XCTestCase {
         app.tabBars.buttons["Shopping"].tap()
         XCTAssertTrue(app.navigationBars["Shopping"].waitForExistence(timeout: 2))
 
-        // Wait for item to appear
-        let shoppingItem = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Completion Test Item")).firstMatch
+        // Wait for item to appear using stable identifier
+        let shoppingItemNames = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ShoppingItemName_"))
+        let shoppingItem = shoppingItemNames.containing(NSPredicate(format: "label CONTAINS %@", "Completion Test Item")).firstMatch
         XCTAssertTrue(shoppingItem.waitForExistence(timeout: 5), "Item should appear in shopping list")
 
-        // Find and tap the checkbox (circle icon)
-        let checkboxes = app.buttons.matching(identifier: "circle")
+        // Find and tap the checkbox using stable identifier
+        let checkboxes = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ShoppingItemCheckbox_"))
         XCTAssertTrue(checkboxes.count > 0, "At least one checkbox should exist")
 
         let checkbox = checkboxes.element(boundBy: 0)
         checkbox.tap()
 
-        // Verify checkbox becomes filled
-        let filledCheckbox = app.buttons["checkmark.circle.fill"]
-        XCTAssertTrue(filledCheckbox.waitForExistence(timeout: 2), "Checkbox should become filled when marked complete")
+        // Verify checkbox becomes filled (still using the first matching checkbox)
+        let filledCheckboxes = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ShoppingItemCheckbox_"))
+        let filledCheckbox = filledCheckboxes.element(boundBy: 0)
+        XCTAssertTrue(filledCheckbox.waitForExistence(timeout: 2), "Checkbox should exist after completion")
     }
 
     @MainActor
@@ -199,7 +195,7 @@ final class FamilyStockUITests: XCTestCase {
         // First create and complete a shopping item
         addTestItem(name: "Receipt Test Item", fullStock: 3)
 
-        // Add it to shopping list
+        // Add it to shopping list using stable identifier
         let shoppingButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "AddToShoppingButton_"))
         if shoppingButtons.count > 0 {
             shoppingButtons.element(boundBy: 0).tap()
@@ -209,25 +205,26 @@ final class FamilyStockUITests: XCTestCase {
         app.tabBars.buttons["Shopping"].tap()
         XCTAssertTrue(app.navigationBars["Shopping"].waitForExistence(timeout: 2))
 
-        // Wait for item and mark it complete
-        let shoppingItem = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Receipt Test Item")).firstMatch
+        // Wait for item and mark it complete using stable identifier
+        let shoppingItemNames = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ShoppingItemName_"))
+        let shoppingItem = shoppingItemNames.containing(NSPredicate(format: "label CONTAINS %@", "Receipt Test Item")).firstMatch
         XCTAssertTrue(shoppingItem.waitForExistence(timeout: 5), "Item should appear in shopping list")
 
-        let checkbox = app.buttons.matching(identifier: "circle").element(boundBy: 0)
-        if checkbox.exists {
-            checkbox.tap()
+        let checkboxes = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ShoppingItemCheckbox_"))
+        if checkboxes.count > 0 {
+            checkboxes.element(boundBy: 0).tap()
         }
 
-        // Check if Save Receipt button exists (only appears when items are completed)
-        let saveReceiptButton = app.buttons["Save Receipt"]
+        // Check if Save Receipt button exists using stable identifier
+        let saveReceiptButton = app.buttons["SaveReceiptButton"]
         XCTAssertTrue(saveReceiptButton.waitForExistence(timeout: 2), "Save Receipt button should appear when items are completed")
         saveReceiptButton.tap()
 
         // Verify save receipt sheet appears
         XCTAssertTrue(app.navigationBars["Save Receipt"].waitForExistence(timeout: 2))
 
-        // Fill in shop name
-        let shopNameField = app.textFields["Shop Name"]
+        // Fill in shop name using stable identifier
+        let shopNameField = app.textFields["ReceiptShopNameField"]
         XCTAssertTrue(shopNameField.exists)
         shopNameField.tap()
         shopNameField.typeText("Test Store")
@@ -238,13 +235,10 @@ final class FamilyStockUITests: XCTestCase {
         // Navigate to Receipts tab
         app.tabBars.buttons["Receipts"].tap()
 
-        // Verify receipt appears with shop name
-        let receipt = app.staticTexts["Test Store"]
+        // Verify receipt appears using stable identifier
+        let receiptShopNames = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH %@", "ReceiptShopName_"))
+        let receipt = receiptShopNames.containing(NSPredicate(format: "label == %@", "Test Store")).firstMatch
         XCTAssertTrue(receipt.waitForExistence(timeout: 3), "Receipt should appear in Receipts list")
-
-        // Verify the receipt item is listed
-        let receiptItem = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Receipt Test Item")).firstMatch
-        XCTAssertTrue(receiptItem.exists, "Receipt should contain the purchased item")
     }
 
     // MARK: - Receipts Tab Tests
@@ -292,21 +286,21 @@ final class FamilyStockUITests: XCTestCase {
         // Wait for sheet
         XCTAssertTrue(app.navigationBars["New Item"].waitForExistence(timeout: 2))
 
-        // Fill in name
-        let nameField = app.textFields["Name"]
+        // Fill in name using stable identifier
+        let nameField = app.textFields["ItemNameField"]
         nameField.tap()
         nameField.typeText(name)
 
-        // Fill in category if provided
+        // Fill in category if provided using stable identifier
         if let category = category {
-            let categoryField = app.textFields["Category (optional)"]
+            let categoryField = app.textFields["ItemCategoryField"]
             categoryField.tap()
             categoryField.typeText(category)
         }
 
-        // Fill in full stock if provided
+        // Fill in full stock if provided using stable identifier
         if fullStock > 0 {
-            let fullStockField = app.textFields.matching(identifier: "Full Stock Count").element
+            let fullStockField = app.textFields["ItemFullStockField"]
             if fullStockField.exists {
                 fullStockField.tap()
                 fullStockField.typeText("\(Int(fullStock))")

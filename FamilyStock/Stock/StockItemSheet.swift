@@ -59,6 +59,7 @@ struct StockItemSheet: View {
                         TextField(String(localized: "Name"), text: $name)
                             .textInputAutocapitalization(.words)
                             .multilineTextAlignment(.trailing)
+                            .accessibilityIdentifier("ItemNameField")
                     } label: {
                         Text(String(localized: "Name"))
                     }
@@ -66,6 +67,7 @@ struct StockItemSheet: View {
                     LabeledContent {
                         TextField(String(localized: "Category (optional)"), text: $category)
                             .multilineTextAlignment(.trailing)
+                            .accessibilityIdentifier("ItemCategoryField")
                     } label: {
                         Text(String(localized: "Category"))
                     }
@@ -76,6 +78,7 @@ struct StockItemSheet: View {
                         TextField(String(localized: "Quantity"), text: $quantityInStockText)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .accessibilityIdentifier("ItemQuantityField")
                     } label: {
                         Text(String(localized: "Quantity In Stock"))
                     }
@@ -84,7 +87,7 @@ struct StockItemSheet: View {
                         TextField(String(localized: "Full Stock"), text: $fullStockText)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
-                            .accessibilityIdentifier("Full Stock Count")
+                            .accessibilityIdentifier("ItemFullStockField")
                     } label: {
                         Text(String(localized: "Full Stock Count"))
                     }
